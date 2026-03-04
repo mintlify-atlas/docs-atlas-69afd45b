@@ -1,0 +1,97 @@
+---
+title: geocode()
+description: Reverse geocode coordinates into India location metadata
+---
+
+## Function signature
+
+```python
+def geocode(
+    lat: float,
+    lon: float,
+    options: Optional[GeocodeOptions] = None,
+) -> Optional[GeocodeResult]
+```
+
+Reverse geocodes latitude/longitude into India location metadata.
+
+Uses the library's internal singleton geocoder, so you can call this directly without creating any class instance.
+
+## Parameters
+
+<ParamField path="lat" type="float" required>
+  Latitude in decimal degrees. Must be between -90 and 90.
+</ParamField>
+
+<ParamField path="lon" type="float" required>
+  Longitude in decimal degrees. Must be between -180 and 180.
+</ParamField>
+
+<ParamField path="options" type="GeocodeOptions" default="None">
+  Lookup options to control resolution, fallback behavior, and debug logging. See [GeocodeOptions](/api/python/types#geocodeoptions) for details.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="GeocodeResult | None">
+  Matched location details, or `None` when input is invalid or no match exists. See [GeocodeResult](/api/python/types#geocoderesult) for the complete structure.
+</ResponseField>
+
+## Examples
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```python
+    from lakhua import geocode
+
+    result = geocode(28.6139, 77.2090)
+    if result:
+        print(f"{result.city}, {result.state}")
+        # Output: New Delhi, Delhi
+    ```
+  </Tab>
+
+  <Tab title="With options">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+
+    # Use resolution 4 for broader coverage
+    options = GeocodeOptions(resolution=4, fallback=True, debug=False)
+    result = geocode(28.6139, 77.2090, options)
+
+    if result:
+        print(f"City: {result.city}")
+        print(f"State: {result.state}")
+        print(f"Matched at resolution: {result.matched_resolution}")
+    ```
+  </Tab>
+
+  <Tab title="Handling no match">
+    ```python
+    from lakhua import geocode
+
+    # Coordinates outside India or with no data
+    result = geocode(0.0, 0.0)
+
+    if result is None:
+        print("No location data found for these coordinates")
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  The first call to `geocode()` will load data from disk into memory, which may take a moment. Subsequent calls are very fast (typically under 1ms).
+</Note>
+
+## Behavior
+
+- **Validation**: Returns `None` if coordinates are invalid (out of range or not numeric)
+- **H3 conversion**: Converts coordinates to an H3 cell at the specified resolution (default: 5)
+- **Fallback**: When enabled (default), checks parent cells at lower resolutions if exact match fails
+- **Resolution**: Higher resolution (5) provides city-level accuracy; lower resolution (4) provides broader regional coverage
+
+## See also
+
+- [geocode_h3()](/api/python/geocode-h3) - Reverse geocode an H3 cell index directly
+- [GeocodeOptions](/api/python/types#geocodeoptions) - Configuration options
+- [GeocodeResult](/api/python/types#geocoderesult) - Return type structure

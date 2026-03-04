@@ -1,0 +1,86 @@
+---
+title: Geocode H3
+description: Reverse geocode H3 index to location details
+---
+
+## Function signature
+
+```go
+func GeocodeH3(h3Index string, options *GeocodeOptions) *GeocodeResult
+```
+
+Reverse geocodes an H3 index string to location details including city, state, district, and pincode.
+
+## Parameters
+
+<ParamField path="h3Index" type="string" required>
+  Valid H3 index string (e.g., "8560145bfffffff")
+</ParamField>
+
+<ParamField path="options" type="*GeocodeOptions">
+  Optional configuration for geocoding behavior. See [GeocodeOptions](/api/go/types#geocodeoptions) for available fields.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="*GeocodeResult">
+  Returns a pointer to a [GeocodeResult](/api/go/types#geocoderesult) containing location details and H3 match information. Returns `nil` if no match is found or if the H3 index is invalid.
+</ResponseField>
+
+## Examples
+
+### Basic usage
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    result := lakhua.GeocodeH3("8560145bfffffff", nil)
+    if result == nil {
+        fmt.Println("no match")
+        return
+    }
+    fmt.Printf("city=%s state=%s\n", result.City, result.State)
+}
+```
+
+### With options
+
+```go
+result := lakhua.GeocodeH3("8560145bfffffff", &lakhua.GeocodeOptions{
+    Resolution: 5,
+    Debug: true,
+})
+if result != nil {
+    fmt.Printf("matched at resolution %d\n", result.MatchedResolution)
+}
+```
+
+### Disable fallback
+
+```go
+fallback := false
+result := lakhua.GeocodeH3("8560145bfffffff", &lakhua.GeocodeOptions{
+    Fallback: &fallback,
+})
+```
+
+## Behavior
+
+<Note>
+  When fallback is enabled (default), the function will:
+  1. First attempt to match at the input H3 index resolution
+  2. If no match, traverse up to parent resolutions (coarser granularity)
+  3. Continue until a match is found or minimum resolution is reached
+  
+  When fallback is disabled, only the exact resolution is checked.
+</Note>
+
+<Note>
+  The function validates the H3 index and returns `nil` for invalid index strings.
+</Note>

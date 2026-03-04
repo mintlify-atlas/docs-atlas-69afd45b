@@ -1,0 +1,233 @@
+---
+title: Usage
+description: Learn how to use the lakhua Go SDK for reverse geocoding
+---
+
+## Import the package
+
+Import lakhua in your Go code:
+
+```go
+import lakhua "github.com/aialok/lakhua/libs/go"
+```
+
+## Core functions
+
+The lakhua Go SDK provides two primary functions for reverse geocoding:
+
+### Geocode()
+
+Convert latitude and longitude coordinates to location details:
+
+```go
+func Geocode(lat float64, lon float64, options *GeocodeOptions) *GeocodeResult
+```
+
+**Parameters:**
+- `lat` - Latitude (-90 to 90)
+- `lon` - Longitude (-180 to 180)
+- `options` - Optional configuration (pass `nil` for defaults)
+
+**Example:**
+
+```go
+result := lakhua.Geocode(28.6139, 77.2090, nil)
+if result != nil {
+    fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+}
+```
+
+### GeocodeH3()
+
+Lookup location details directly from an H3 index:
+
+```go
+func GeocodeH3(h3Index string, options *GeocodeOptions) *GeocodeResult
+```
+
+**Parameters:**
+- `h3Index` - Valid H3 index string (e.g., `"8560145bfffffff"`)
+- `options` - Optional configuration (pass `nil` for defaults)
+
+**Example:**
+
+```go
+result := lakhua.GeocodeH3("8560145bfffffff", nil)
+if result != nil {
+    fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+}
+```
+
+<Note>
+  Both functions use an internal singleton geocoder, so there's no need to instantiate any structs. Just call the functions directly.
+</Note>
+
+## GeocodeOptions
+
+Customize geocoding behavior with optional parameters:
+
+```go
+type GeocodeOptions struct {
+    Resolution int   // H3 resolution for Geocode(). Default: 5, Range: 4-5
+    Fallback   *bool // Walk up to parent resolution on miss. Default: true
+    Debug      bool  // Print load and lookup timings. Default: false
+}
+```
+
+### Resolution
+
+Sets the H3 resolution level for coordinate-based lookups. Higher resolution means more granular geocoding:
+
+- **Resolution 5** (default): ~2.5km hexagons - more precise
+- **Resolution 4**: ~8.5km hexagons - broader coverage
+
+```go
+result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+    Resolution: 5,
+})
+```
+
+<Note>
+  The resolution is automatically clamped to the supported range (4-5). Values outside this range are adjusted automatically.
+</Note>
+
+### Fallback
+
+When enabled (default), lakhua will check parent resolutions if no match is found at the requested resolution:
+
+```go
+// Enable fallback (default behavior)
+result := lakhua.Geocode(28.6139, 77.2090, nil)
+
+// Disable fallback - only check exact resolution
+noFallback := false
+result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+    Fallback: &noFallback,
+})
+```
+
+<Warning>
+  Disabling fallback may result in more `nil` results, especially in areas with sparse data coverage at higher resolutions.
+</Warning>
+
+### Debug
+
+Enable debug mode to print load and lookup timing information to stdout:
+
+```go
+result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+    Debug: true,
+})
+```
+
+**Example debug output:**
+
+```
+[lakhua][debug] lookup key 8560145bfffffff in r5 took 0.023ms
+[lakhua][debug] match found in 0.045ms
+```
+
+## GeocodeResult
+
+Successful geocoding returns a `GeocodeResult` struct:
+
+```go
+type GeocodeResult struct {
+    City              string  // City name (always present)
+    State             string  // State name (always present)
+    District          *string // District name (may be nil)
+    Pincode           *string // Postal code (may be nil)
+    MatchedH3         string  // H3 cell that matched
+    MatchedResolution int     // Resolution of matched cell
+}
+```
+
+**Field details:**
+
+- `City` - The city or locality name
+- `State` - The state or union territory name
+- `District` - District name (optional, may be `nil`)
+- `Pincode` - Postal code/PIN code (optional, may be `nil`)
+- `MatchedH3` - The H3 index that matched (may be a parent cell if fallback occurred)
+- `MatchedResolution` - The resolution level of the matched cell (4 or 5)
+
+**Example:**
+
+```go
+result := lakhua.Geocode(28.6139, 77.2090, nil)
+if result == nil {
+    fmt.Println("No match found")
+    return
+}
+
+fmt.Printf("City: %s\n", result.City)
+fmt.Printf("State: %s\n", result.State)
+fmt.Printf("Matched H3: %s at resolution %d\n", result.MatchedH3, result.MatchedResolution)
+
+if result.District != nil {
+    fmt.Printf("District: %s\n", *result.District)
+}
+
+if result.Pincode != nil {
+    fmt.Printf("Pincode: %s\n", *result.Pincode)
+}
+```
+
+<Note>
+  The function returns `nil` for invalid coordinates, invalid H3 indices, or when no geographic data exists for the given location.
+</Note>
+
+## Input validation
+
+The SDK automatically validates inputs:
+
+### Coordinate validation
+
+- Latitude must be between -90 and 90
+- Longitude must be between -180 and 180
+- NaN and Infinity values are rejected
+
+```go
+result := lakhua.Geocode(999, 999, nil)
+fmt.Println(result) // Output: <nil>
+```
+
+### H3 index validation
+
+- H3 indices are validated using the H3 library
+- Invalid indices return `nil`
+
+```go
+result := lakhua.GeocodeH3("invalid-h3-index", nil)
+fmt.Println(result) // Output: <nil>
+```
+
+## Advanced usage
+
+### Accessing singletons directly
+
+For advanced use cases, you can access the singleton instances:
+
+```go
+// Get the geocoder instance
+geocoder := lakhua.GetGeocoder()
+result := geocoder.Geocode(28.6139, 77.2090, nil)
+
+// Get the data loader instance (for testing)
+dataLoader := lakhua.GetDataLoader()
+```
+
+<Warning>
+  Direct singleton access is typically only needed for testing or custom lifecycle management. For normal usage, use the top-level `Geocode()` and `GeocodeH3()` functions.
+</Warning>
+
+## Performance characteristics
+
+- **First call**: 10-50ms (data loading via `sync.Once`)
+- **Subsequent calls**: &lt;1ms (in-memory map lookup)
+- **With fallback**: Up to 2 map lookups (resolution 5, then 4)
+- **Memory usage**: ~50-100MB for bundled geographic data
+
+<Note>
+  Data is loaded lazily on the first geocoding call and shared across all goroutines. The singleton pattern ensures thread-safe, efficient data access.
+</Note>

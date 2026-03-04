@@ -1,0 +1,186 @@
+---
+title: Types
+description: Type definitions for the lakhua Python SDK
+---
+
+The lakhua library uses dataclasses to define structured types for geocoding operations. All types are available from the main `lakhua` module.
+
+```python
+from lakhua import GeocodeResult, GeocodeOptions, LocationDetails
+```
+
+## GeocodeResult
+
+Complete result from a geocoding lookup, including match metadata.
+
+This is the main data structure returned by `geocode()` and `geocode_h3()`, containing location details (city, state, etc.) plus metadata about which H3 cell was matched and at what resolution.
+
+### Fields
+
+<ResponseField name="city" type="str" required>
+  Name of the city or town.
+</ResponseField>
+
+<ResponseField name="state" type="str" required>
+  Name of the state or union territory.
+</ResponseField>
+
+<ResponseField name="matched_h3" type="str" required>
+  The H3 cell ID that was found in the database.
+
+  This may be the exact H3 cell for your input coordinates, or a parent cell if fallback was used to find a match at a lower resolution.
+</ResponseField>
+
+<ResponseField name="matched_resolution" type="int" required>
+  The H3 resolution level where the match was found.
+
+  - Resolution 5 (default) provides city-level accuracy (~73 km² cells)
+  - Resolution 4 provides state/region-level accuracy (~410 km² cells)
+</ResponseField>
+
+<ResponseField name="district" type="str | None" default="None">
+  District name, when available in the dataset.
+</ResponseField>
+
+<ResponseField name="pincode" type="str | None" default="None">
+  Postal code (PIN code), when available in the dataset.
+</ResponseField>
+
+### Example
+
+```python
+from lakhua import geocode
+
+result = geocode(28.6139, 77.2090)
+if result:
+    print(f"City: {result.city}")
+    print(f"State: {result.state}")
+    print(f"District: {result.district or 'N/A'}")
+    print(f"Pincode: {result.pincode or 'N/A'}")
+    print(f"Matched H3: {result.matched_h3}")
+    print(f"Resolution: {result.matched_resolution}")
+```
+
+---
+
+## GeocodeOptions
+
+Configuration options for controlling geocoding behavior.
+
+Use these options to tune how lakhua performs lookups, including the precision level and whether to fall back to coarser resolutions when exact matches fail.
+
+### Fields
+
+<ParamField path="resolution" type="int" default="5">
+  H3 resolution to use when converting coordinates to H3 cells.
+
+  - Higher resolutions (5) give finer geographic detail but may have less data coverage
+  - Lower resolutions (4) cover larger areas and have broader coverage
+  - Default is 5 for city-level accuracy
+  - Supported range: 4-5 (values outside this range are automatically clamped)
+</ParamField>
+
+<ParamField path="fallback" type="bool" default="True">
+  Whether to check parent H3 cells if the exact cell has no data.
+
+  When `True` (default), if your coordinates don't match any data at resolution 5, lakhua automatically checks the parent cell at resolution 4. This increases the chance of finding a match, though at lower geographic precision.
+</ParamField>
+
+<ParamField path="debug" type="bool" default="False">
+  Enable debug logging to see timing information for data loading and lookups.
+
+  When `True`, lakhua prints messages showing how long it took to load data from disk and how long each lookup operation takes. Useful for performance analysis.
+</ParamField>
+
+### Example
+
+<Tabs>
+  <Tab title="Custom resolution">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+
+    # Use resolution 4 for broader regional coverage
+    options = GeocodeOptions(resolution=4)
+    result = geocode(28.6139, 77.2090, options)
+    ```
+  </Tab>
+
+  <Tab title="Disable fallback">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+
+    # Only check exact H3 cell, no parent fallback
+    options = GeocodeOptions(fallback=False)
+    result = geocode(28.6139, 77.2090, options)
+
+    if result is None:
+        print("No exact match at resolution 5")
+    ```
+  </Tab>
+
+  <Tab title="Enable debug logging">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+
+    # See performance timing information
+    options = GeocodeOptions(debug=True)
+    result = geocode(28.6139, 77.2090, options)
+
+    # Output includes:
+    # [lakhua][debug] loading data for r5...
+    # [lakhua][debug] lookup key ... in r5 took 0.123ms
+    # [lakhua][debug] match found in 0.456ms
+    ```
+  </Tab>
+
+  <Tab title="All options">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+
+    options = GeocodeOptions(
+        resolution=4,
+        fallback=True,
+        debug=True
+    )
+    result = geocode(28.6139, 77.2090, options)
+    ```
+  </Tab>
+</Tabs>
+
+---
+
+## LocationDetails
+
+<Note>
+  `LocationDetails` is an alias for `GeocodeResult` and is kept for backward compatibility. Use `GeocodeResult` in new code.
+</Note>
+
+```python
+LocationDetails = GeocodeResult
+```
+
+---
+
+## ReverseGeoStore
+
+Internal type representing the in-memory geographic database.
+
+```python
+ReverseGeoStore = Dict[str, Dict[str, str]]
+```
+
+Maps H3 cell IDs (strings) to location information (dictionaries with city, state, etc.). You typically don't need to work with this type directly.
+
+### Structure
+
+```python
+{
+    "8560145bfffffff": {
+        "city": "New Delhi",
+        "state": "Delhi",
+        "district": "New Delhi",
+        "pincode": "110001"
+    },
+    # ... more H3 cells
+}
+```

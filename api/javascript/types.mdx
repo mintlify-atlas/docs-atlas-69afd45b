@@ -1,0 +1,178 @@
+---
+title: Types
+description: TypeScript type definitions for the lakhua JavaScript SDK
+---
+
+## GeocodeOptions
+
+Configuration options to tune lookup behavior for `geocode` and `geocodeH3`.
+
+```typescript
+interface GeocodeOptions {
+  resolution?: number;
+  fallback?: boolean;
+  debug?: boolean;
+}
+```
+
+### Fields
+
+<ResponseField name="resolution" type="number" default="5">
+  H3 resolution for coordinate conversion in `geocode(lat, lon)`. Valid range: 4-6. Higher resolutions provide more granular cells.
+  
+  This option only applies to the `geocode` function. It is ignored in `geocodeH3` since the resolution is determined from the input H3 index.
+</ResponseField>
+
+<ResponseField name="fallback" type="boolean" default="true">
+  Enables parent fallback lookup from current resolution down to resolution 4.
+  
+  When `true`, if no match is found at the requested resolution, the lookup will check parent cells at lower resolutions until a match is found or resolution 4 is reached.
+  
+  When `false`, only the exact resolution is checked with no parent lookup.
+</ResponseField>
+
+<ResponseField name="debug" type="boolean" default="false">
+  Prints timing logs for initial load and per-lookup access.
+  
+  When enabled, logs are written to the console showing:
+  - Data loading time for each resolution
+  - Lookup time for each resolution checked
+  - Total time to find a match (or determine no match exists)
+</ResponseField>
+
+---
+
+## GeocodeResult
+
+Successful geocode result containing matched location details and metadata about the match.
+
+```typescript
+interface GeocodeResult extends LocationDetails {
+  matched_h3: string;
+  matched_resolution: number;
+  city: string;
+  state: string;
+  district?: string;
+  pincode?: string;
+}
+```
+
+### Fields
+
+<ResponseField name="matched_h3" type="string">
+  The H3 cell index that produced the match. This may differ from the input H3 index if fallback was enabled and a parent cell was matched.
+</ResponseField>
+
+<ResponseField name="matched_resolution" type="number">
+  The H3 resolution level at which the match was found (4, 5, or 6). Useful for understanding whether fallback occurred.
+</ResponseField>
+
+<ResponseField name="city" type="string">
+  City name associated with the matched location.
+</ResponseField>
+
+<ResponseField name="state" type="string">
+  State name associated with the matched location.
+</ResponseField>
+
+<ResponseField name="district" type="string | undefined">
+  District name if available. May be `undefined` for some locations.
+</ResponseField>
+
+<ResponseField name="pincode" type="string | undefined">
+  Postal code (PIN code) if available. May be `undefined` for some locations.
+</ResponseField>
+
+### Example
+
+```typescript
+import { geocode } from "lakhua";
+
+const result = geocode(28.6139, 77.2090);
+
+if (result) {
+  console.log(result);
+  // {
+  //   city: "New Delhi",
+  //   state: "Delhi",
+  //   district: "Central Delhi",
+  //   pincode: "110001",
+  //   matched_h3: "8561891bfffffff",
+  //   matched_resolution: 5
+  // }
+}
+```
+
+---
+
+## LocationDetails
+
+Normalized location details associated with an H3 cell.
+
+```typescript
+interface LocationDetails {
+  city: string;
+  state: string;
+  district?: string;
+  pincode?: string;
+}
+```
+
+### Fields
+
+<ResponseField name="city" type="string">
+  City name for the location.
+</ResponseField>
+
+<ResponseField name="state" type="string">
+  State name for the location.
+</ResponseField>
+
+<ResponseField name="district" type="string | undefined">
+  District name if available. May be `undefined` for some locations.
+</ResponseField>
+
+<ResponseField name="pincode" type="string | undefined">
+  Postal code (PIN code) if available. May be `undefined` for some locations.
+</ResponseField>
+
+<Note>
+  `GeocodeResult` extends `LocationDetails` with additional metadata fields (`matched_h3` and `matched_resolution`).
+</Note>
+
+---
+
+## ReverseGeoStore
+
+In-memory reverse geocoding data store keyed by H3 index.
+
+```typescript
+type ReverseGeoStore = Record<string, LocationDetails>;
+```
+
+### Description
+
+A dictionary mapping H3 cell indices (as strings) to their associated location details. This type is used internally by the data loader to cache resolution-specific lookup tables.
+
+### Example
+
+```typescript
+const store: ReverseGeoStore = {
+  "8561891bfffffff": {
+    city: "New Delhi",
+    state: "Delhi",
+    district: "Central Delhi",
+    pincode: "110001"
+  },
+  "866189b1fffffff": {
+    city: "Mumbai",
+    state: "Maharashtra",
+    district: "Mumbai Suburban",
+    pincode: "400001"
+  }
+};
+```
+
+<Note>
+  Most users will not interact with `ReverseGeoStore` directly. It is primarily used by advanced users implementing custom data loaders.
+</Note>

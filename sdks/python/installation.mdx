@@ -1,0 +1,109 @@
+---
+title: Installation
+description: Install the lakhua Python SDK and get started with offline reverse geocoding for India
+---
+
+## Requirements
+
+The lakhua Python SDK requires:
+
+- **Python 3.8 or higher**
+- **h3 library** (version 3.7.0 or higher) - automatically installed as a dependency
+
+## Install with pip
+
+<Steps>
+  <Step title="Install the package">
+    Install lakhua from PyPI using pip:
+
+    ```bash
+    pip install lakhua
+    ```
+
+    This will automatically install the required `h3` dependency.
+  </Step>
+
+  <Step title="Verify installation">
+    Verify the installation by importing lakhua in Python:
+
+    ```python
+    from lakhua import geocode, __version__
+    print(__version__)
+    ```
+
+    You should see the version number (e.g., `1.0.0`).
+  </Step>
+
+  <Step title="Start geocoding">
+    You're ready to use lakhua! Try a quick reverse geocode:
+
+    ```python
+    from lakhua import geocode
+
+    result = geocode(28.6139, 77.2090)  # New Delhi coordinates
+    if result:
+        print(f"{result.city}, {result.state}")
+    ```
+  </Step>
+</Steps>
+
+## Development installation
+
+If you want to contribute to lakhua or run tests, install with development dependencies:
+
+```bash
+pip install -e ".[dev]"
+```
+
+This includes additional packages for testing and development:
+
+- `pytest` and `pytest-cov` for testing
+- `ruff` for linting and formatting
+- `mypy` for type checking
+
+## Supported Python versions
+
+lakhua supports the following Python versions:
+
+<CodeGroup>
+```text Python 3.8
+✓ Supported
+```
+
+```text Python 3.9
+✓ Supported
+```
+
+```text Python 3.10
+✓ Supported
+```
+
+```text Python 3.11
+✓ Supported
+```
+
+```text Python 3.12
+✓ Supported
+```
+</CodeGroup>
+
+<Note>
+  The lakhua package includes precomputed geographic data as JSON files. The first time you call `geocode()` or `geocode_h3()`, this data is loaded into memory. All subsequent lookups are in-memory dictionary reads with sub-millisecond latency.
+</Note>
+
+## Package contents
+
+When you install lakhua, you get:
+
+- **Core geocoding functions**: `geocode()` and `geocode_h3()`
+- **Type definitions**: `GeocodeResult`, `GeocodeOptions`, `LocationDetails`
+- **Advanced APIs**: `ReverseGeocoder`, `DataLoader` classes
+- **Geographic data**: Precomputed H3 index data for India (bundled as JSON files)
+- **Type hints**: Full type annotations with `py.typed` marker
+
+## Next steps
+
+Now that you have lakhua installed, learn how to use it:
+
+- [Basic usage](/sdks/python/usage) - Learn the core API
+- [Examples](/sdks/python/examples) - See real-world code examples

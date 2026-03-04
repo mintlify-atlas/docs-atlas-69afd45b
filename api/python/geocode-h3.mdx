@@ -1,0 +1,124 @@
+---
+title: geocode_h3()
+description: Reverse geocode an H3 cell index into location metadata
+---
+
+## Function signature
+
+```python
+def geocode_h3(
+    h3_index: str,
+    options: Optional[GeocodeOptions] = None,
+) -> Optional[GeocodeResult]
+```
+
+Reverse geocodes an H3 cell index directly into India location metadata.
+
+Uses the library's internal singleton geocoder. When fallback is enabled (default), parent resolutions are checked until the minimum supported resolution.
+
+## Parameters
+
+<ParamField path="h3_index" type="str" required>
+  H3 cell index string (e.g., `"8560145bfffffff"`). Must be a valid H3 cell identifier.
+</ParamField>
+
+<ParamField path="options" type="GeocodeOptions" default="None">
+  Lookup options to control fallback behavior and debug logging. See [GeocodeOptions](/api/python/types#geocodeoptions) for details.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="GeocodeResult | None">
+  Matched location details, or `None` when the H3 index is invalid or no match exists. See [GeocodeResult](/api/python/types#geocoderesult) for the complete structure.
+</ResponseField>
+
+## Examples
+
+<Tabs>
+  <Tab title="Basic usage">
+    ```python
+    from lakhua import geocode_h3
+
+    result = geocode_h3("8560145bfffffff")
+    if result:
+        print(f"{result.city}, {result.state}")
+        print(f"Matched H3: {result.matched_h3}")
+        print(f"Resolution: {result.matched_resolution}")
+    else:
+        print("No match found")
+    ```
+  </Tab>
+
+  <Tab title="With fallback disabled">
+    ```python
+    from lakhua import geocode_h3, GeocodeOptions
+
+    # Only check exact H3 cell, no parent fallback
+    options = GeocodeOptions(fallback=False)
+    result = geocode_h3("8560145bfffffff", options)
+
+    if result:
+        print(f"Exact match: {result.city}")
+    else:
+        print("No exact match at this resolution")
+    ```
+  </Tab>
+
+  <Tab title="Debug mode">
+    ```python
+    from lakhua import geocode_h3, GeocodeOptions
+
+    # Enable debug logging to see timing information
+    options = GeocodeOptions(debug=True)
+    result = geocode_h3("8560145bfffffff", options)
+
+    # Debug output will show:
+    # [lakhua][debug] lookup key ... in r5 took 0.123ms
+    # [lakhua][debug] match found in 0.456ms
+    ```
+  </Tab>
+
+  <Tab title="Invalid H3 index">
+    ```python
+    from lakhua import geocode_h3
+
+    # Invalid H3 index
+    result = geocode_h3("invalid_h3_index")
+
+    if result is None:
+        print("Invalid H3 index provided")
+    ```
+  </Tab>
+</Tabs>
+
+<Note>
+  This function is useful when you already have H3 cell indices from spatial indexing or other H3-based systems and want to look up their location information directly.
+</Note>
+
+## Behavior
+
+- **Validation**: Returns `None` if the H3 index is invalid (checked using `h3.is_valid_cell()`)
+- **Resolution handling**: Automatically detects the resolution of the input H3 cell
+- **Fallback logic**: When enabled (default), checks parent cells starting from the input resolution down to resolution 4
+- **Clamping**: Input resolutions are clamped to the supported range (4-5)
+- **Performance**: Lookups are very fast (typically under 1ms) after initial data loading
+
+## Resolution fallback
+
+When `fallback=True` (default):
+
+1. Checks the exact H3 cell at its native resolution
+2. If no match, checks the parent cell at resolution 5 (if input was higher)
+3. If still no match, checks the parent cell at resolution 4
+4. Returns `None` if no match is found at any supported resolution
+
+When `fallback=False`:
+
+- Only checks the exact H3 cell (converted to its parent at the clamped resolution if needed)
+- Returns `None` immediately if no exact match exists
+
+## See also
+
+- [geocode()](/api/python/geocode) - Reverse geocode latitude/longitude coordinates
+- [GeocodeOptions](/api/python/types#geocodeoptions) - Configuration options
+- [GeocodeResult](/api/python/types#geocoderesult) - Return type structure

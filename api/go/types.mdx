@@ -1,0 +1,131 @@
+---
+title: Types
+description: Type definitions for the lakhua Go SDK
+---
+
+## GeocodeOptions
+
+Configuration options for geocoding operations.
+
+```go
+type GeocodeOptions struct {
+    Resolution int
+    Fallback   *bool
+    Debug      bool
+}
+```
+
+### Fields
+
+<ResponseField name="Resolution" type="int">
+  H3 resolution level for geocoding (0-15). Higher values provide finer granularity.
+  
+  - Default: 6
+  - Valid range: 0-15 (automatically clamped to valid H3 resolutions)
+</ResponseField>
+
+<ResponseField name="Fallback" type="*bool">
+  Enable fallback to coarser resolutions if no exact match is found.
+  
+  - Default: `true`
+  - When `true`: searches parent resolutions until match found
+  - When `false`: only checks the specified resolution
+</ResponseField>
+
+<ResponseField name="Debug" type="bool">
+  Enable debug logging to stdout.
+  
+  - Default: `false`
+  - Prints timing information and lookup details
+</ResponseField>
+
+## GeocodeResult
+
+Result of a geocoding operation containing location details and match metadata.
+
+```go
+type GeocodeResult struct {
+    LocationDetails
+    MatchedH3         string `json:"matched_h3"`
+    MatchedResolution int    `json:"matched_resolution"`
+}
+```
+
+### Fields
+
+<ResponseField name="LocationDetails" type="LocationDetails">
+  Embedded struct containing location information. See [LocationDetails](#locationdetails) below.
+</ResponseField>
+
+<ResponseField name="MatchedH3" type="string">
+  The H3 index string that matched in the geocoding database.
+</ResponseField>
+
+<ResponseField name="MatchedResolution" type="int">
+  The H3 resolution level at which the match was found (0-15).
+</ResponseField>
+
+## LocationDetails
+
+Detailed location information for a geocoded point.
+
+```go
+type LocationDetails struct {
+    City     string  `json:"city"`
+    State    string  `json:"state"`
+    District *string `json:"district,omitempty"`
+    Pincode  *string `json:"pincode,omitempty"`
+}
+```
+
+### Fields
+
+<ResponseField name="City" type="string" required>
+  City or locality name.
+</ResponseField>
+
+<ResponseField name="State" type="string" required>
+  State or union territory name.
+</ResponseField>
+
+<ResponseField name="District" type="*string">
+  District name (may be `nil` if not available).
+</ResponseField>
+
+<ResponseField name="Pincode" type="*string">
+  Postal code or PIN code (may be `nil` if not available).
+</ResponseField>
+
+## Examples
+
+### Creating options with fallback disabled
+
+```go
+fallback := false
+options := &lakhua.GeocodeOptions{
+    Resolution: 6,
+    Fallback:   &fallback,
+    Debug:      false,
+}
+```
+
+### Accessing result fields
+
+```go
+result := lakhua.Geocode(28.6139, 77.2090, nil)
+if result != nil {
+    fmt.Printf("City: %s\n", result.City)
+    fmt.Printf("State: %s\n", result.State)
+    
+    if result.District != nil {
+        fmt.Printf("District: %s\n", *result.District)
+    }
+    
+    if result.Pincode != nil {
+        fmt.Printf("Pincode: %s\n", *result.Pincode)
+    }
+    
+    fmt.Printf("Matched H3: %s\n", result.MatchedH3)
+    fmt.Printf("Resolution: %d\n", result.MatchedResolution)
+}
+```

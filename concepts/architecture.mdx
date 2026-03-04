@@ -1,0 +1,392 @@
+---
+title: Architecture
+description: Understand lakhua's data model, runtime design, SDK structure, and cross-language contract
+---
+
+lakhua is designed for deterministic, in-memory reverse geocoding with minimal dependencies and consistent behavior across languages.
+
+## Design principles
+
+lakhua follows these core architectural principles:
+
+- **Offline-first**: All data is embedded in the SDK. No network calls or external dependencies at runtime
+- **Memory-resident**: Data loads once per process and stays in memory for subsequent lookups
+- **Language parity**: JavaScript, Python, and Go SDKs share identical behavior, options, and output formats
+- **Zero configuration**: Works out of the box with sensible defaults
+- **Predictable performance**: Synchronous, in-memory map operations with consistent latency
+
+## Data model
+
+lakhua uses precomputed JSON files that map H3 cell indexes to location metadata.
+
+### Data files
+
+Each SDK packages two JSON files:
+
+- `reverse_geo_4.json` (~237 KB): Resolution 4 cells covering major regions
+- `reverse_geo_5.json` (~1.1 MB): Resolution 5 cells for finer-grained coverage
+
+<Info>
+Total unpacked size is approximately 1.39 MB. Both files are loaded into memory on first use.
+</Info>
+
+### Data structure
+
+Each JSON file is a flat object mapping H3 index strings to location records:
+
+```json
+{
+  "8560b68bfffffff": {
+    "city": "New Delhi",
+    "state": "Delhi",
+    "district": "Central Delhi",
+    "pincode": "110001"
+  },
+  "853d838bfffffff": {
+    "city": "Orchha",
+    "state": "Madhya Pradesh",
+    "district": "Orchha Tahsil",
+    "pincode": "472246"
+  }
+}
+```
+
+### Location fields
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `city` | string | Yes | City or town name |
+| `state` | string | Yes | Indian state or union territory |
+| `district` | string | No | District or tehsil name |
+| `pincode` | string | No | Postal code (6 digits) |
+
+<Note>
+`district` and `pincode` are optional fields. Not all cells have this data, depending on OpenStreetMap source coverage.
+</Note>
+
+## Runtime design
+
+lakhua uses a singleton pattern to ensure data loads once per process.
+
+### Data loading flow
+
+<Steps>
+  <Step title="First geocode call">
+    When you call `geocode()` or `geocodeH3()` for the first time, the SDK initializes its data loader singleton.
+  </Step>
+
+  <Step title="Load both resolutions">
+    The data loader reads both `reverse_geo_4.json` and `reverse_geo_5.json` from the package's embedded data directory.
+  </Step>
+
+  <Step title="Parse and cache">
+    JSON is parsed and stored in an in-memory map structure. This typically takes 5-15ms depending on runtime and hardware.
+  </Step>
+
+  <Step title="Subsequent lookups">
+    All future lookups retrieve data from the in-memory cache. No disk I/O or parsing happens after initial load.
+  </Step>
+</Steps>
+
+### Query path
+
+All lookups are synchronous and memory-only:
+
+```text
+geocode(lat, lon)
+    ↓
+convert to H3 index
+    ↓
+map.get(h3Index) at resolution N
+    ↓
+    if not found + fallback enabled:
+        ↓
+        compute parent H3
+        ↓
+        map.get(parentH3) at resolution N-1
+    ↓
+return result or null
+```
+
+<Accordion title="Performance characteristics">
+- **First call**: 5-15ms (data loading + lookup)
+- **Subsequent calls**: 0.01-0.1ms (in-memory map read)
+- **Memory footprint**: ~1.5-2 MB (JSON data + map overhead)
+- **Cold start**: Single initialization per process, not per request
+</Accordion>
+
+## SDK structure
+
+All three SDKs follow the same internal architecture with language-specific implementations.
+
+### Component layers
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```text
+    libs/javascript/src/
+    ├── index.ts              # Public API exports
+    ├── core/
+    │   ├── geocoder.ts       # ReverseGeocoder class, lookup logic
+    │   └── data-loader.ts    # ReverseGeoDataLoader singleton
+    ├── config/
+    │   └── constants.ts      # Resolutions, file paths, data reading
+    └── types/
+        └── geocode.ts        # TypeScript type definitions
+    ```
+    
+    **Key classes**:
+    - `ReverseGeocoder`: Main geocoding logic with `geocode()` and `geocodeH3()` methods
+    - `ReverseGeoDataLoader`: Singleton that loads and caches JSON data
+    - `defaultGeocoder`: Shared instance used by top-level function exports
+  </Tab>
+  
+  <Tab title="Python">
+    ```text
+    libs/python/lakhua/
+    ├── __init__.py           # Public API exports
+    ├── geocoder.py           # Top-level functions
+    ├── core/
+    │   ├── geocoder.py       # ReverseGeocoder class
+    │   ├── data_loader.py    # ReverseGeoDataLoader singleton
+    │   └── constants.py      # Resolutions, file paths, data reading
+    └── types.py              # Dataclass definitions
+    ```
+    
+    **Key classes**:
+    - `ReverseGeocoder`: Main geocoding logic
+    - `ReverseGeoDataLoader`: Singleton for data loading
+    - `GeocodeResult`: Dataclass for return values
+    - `GeocodeOptions`: Dataclass for options
+  </Tab>
+  
+  <Tab title="Go">
+    ```text
+    libs/go/
+    ├── lakhua.go                    # Public API and types
+    ├── internal/
+    │   ├── loader/
+    │   │   └── loader.go            # DataLoader implementation
+    │   └── config/
+    │       └── constants.go         # Constants and data reading
+    └── data/
+        ├── reverse_geo_4.json
+        └── reverse_geo_5.json
+    ```
+    
+    **Key types**:
+    - `ReverseGeocoder`: Geocoding orchestration
+    - `ReverseGeoDataLoader`: Wrapper around internal loader
+    - `GeocodeResult`: Result struct with location details
+    - `GeocodeOptions`: Options struct
+  </Tab>
+</Tabs>
+
+### Singleton pattern
+
+All SDKs use singletons to prevent redundant data loading:
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```typescript
+    export class ReverseGeocoder {
+      private static instance: ReverseGeocoder | null = null;
+      
+      static getInstance(): ReverseGeocoder {
+        if (!ReverseGeocoder.instance) {
+          ReverseGeocoder.instance = new ReverseGeocoder();
+        }
+        return ReverseGeocoder.instance;
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```python
+    class ReverseGeocoder:
+        _instance = None
+        
+        @classmethod
+        def get_instance(cls):
+            if cls._instance is None:
+                cls._instance = cls()
+            return cls._instance
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```go
+    var (
+        defaultGeocoderOnce sync.Once
+        defaultGeocoder     *ReverseGeocoder
+    )
+    
+    func GetGeocoder() *ReverseGeocoder {
+        defaultGeocoderOnce.Do(func() {
+            defaultGeocoder = &ReverseGeocoder{
+                dataLoader: GetDataLoader(),
+            }
+        })
+        return defaultGeocoder
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Cross-language contract
+
+All SDKs guarantee identical behavior through a shared contract.
+
+### Shared defaults
+
+| Setting | Value | Description |
+|---------|-------|-------------|
+| Default resolution | `5` | Used for `geocode(lat, lon)` conversion |
+| Supported resolutions | `4`, `5` | Available in data files |
+| Fallback default | `true` | Walk up to parent resolution on miss |
+| Debug default | `false` | No timing logs by default |
+
+### Function signatures
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```typescript
+    function geocode(
+      lat: number,
+      lon: number,
+      options?: GeocodeOptions
+    ): GeocodeResult | null;
+    
+    function geocodeH3(
+      h3Index: string,
+      options?: GeocodeOptions
+    ): GeocodeResult | null;
+    
+    interface GeocodeOptions {
+      resolution?: number;  // default: 5
+      fallback?: boolean;   // default: true
+      debug?: boolean;      // default: false
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```python
+    def geocode(
+        lat: float,
+        lon: float,
+        options: Optional[GeocodeOptions] = None
+    ) -> Optional[GeocodeResult]:
+        ...
+    
+    def geocode_h3(
+        h3_index: str,
+        options: Optional[GeocodeOptions] = None
+    ) -> Optional[GeocodeResult]:
+        ...
+    
+    @dataclass
+    class GeocodeOptions:
+        resolution: int = 5
+        fallback: bool = True
+        debug: bool = False
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```go
+    func Geocode(
+        lat float64,
+        lon float64,
+        options *GeocodeOptions
+    ) *GeocodeResult
+    
+    func GeocodeH3(
+        h3Index string,
+        options *GeocodeOptions
+    ) *GeocodeResult
+    
+    type GeocodeOptions struct {
+        Resolution int    // default: 5
+        Fallback   *bool  // default: true
+        Debug      bool   // default: false
+    }
+    ```
+  </Tab>
+</Tabs>
+
+### Output format
+
+All SDKs return the same fields with language-appropriate naming conventions:
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```typescript
+    interface GeocodeResult {
+      city: string;
+      state: string;
+      district?: string;
+      pincode?: string;
+      matched_h3: string;
+      matched_resolution: number;
+    }
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```python
+    @dataclass
+    class GeocodeResult:
+        city: str
+        state: str
+        district: Optional[str]
+        pincode: Optional[str]
+        matched_h3: str
+        matched_resolution: int
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```go
+    type GeocodeResult struct {
+        LocationDetails
+        MatchedH3         string `json:"matched_h3"`
+        MatchedResolution int    `json:"matched_resolution"`
+    }
+    
+    type LocationDetails struct {
+        City     string  `json:"city"`
+        State    string  `json:"state"`
+        District *string `json:"district,omitempty"`
+        Pincode  *string `json:"pincode,omitempty"`
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Data generation pipeline
+
+The JSON data files are generated from OpenStreetMap data using tools in the `tools/` directory.
+
+<Note>
+End users don't need to run the data pipeline. Pre-generated JSON files are included in each SDK package.
+</Note>
+
+### Pipeline overview
+
+```text
+OSM administrative boundaries
+    ↓
+Extract India regions
+    ↓
+Generate H3 cells at resolutions 4 and 5
+    ↓
+Map cells to location metadata
+    ↓
+Export to reverse_geo_4.json and reverse_geo_5.json
+    ↓
+Copy to SDK data directories
+```
+
+This pipeline runs during development when updating the dataset. The generated files are committed to the repository and distributed with each SDK package.

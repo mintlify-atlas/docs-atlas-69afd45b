@@ -1,0 +1,252 @@
+---
+title: How it works
+description: Understand H3 indexing, lookup flow, fallback behavior, and resolution levels in lakhua
+---
+
+lakhua uses Uber's H3 hexagonal grid system to provide fast, offline reverse geocoding for India. This page explains the core concepts and lookup mechanics.
+
+## H3 spatial indexing
+
+H3 is a geospatial indexing system that divides the world into hexagonal cells at multiple resolution levels. Each cell has a unique identifier (H3 index).
+
+<Info>
+H3 resolutions range from 0 (largest hexagons) to 15 (smallest). lakhua uses resolutions 4 and 5, providing city and district-level coverage across India.
+</Info>
+
+When you provide coordinates, lakhua converts them to an H3 cell index at your chosen resolution (default: 5). The system then looks up location metadata associated with that cell.
+
+### Why H3?
+
+- **Consistent cell size**: Hexagons provide more uniform coverage than square grids
+- **Hierarchical structure**: Parent-child relationships enable efficient fallback
+- **Performance**: String-based map lookups are extremely fast in-memory
+- **Standard**: H3 is battle-tested by Uber and widely adopted in geospatial systems
+
+## Lookup flow
+
+The geocoding process follows these steps:
+
+<Steps>
+  <Step title="Data loading">
+    On first call, lakhua loads both resolution 4 and 5 JSON files into memory. This happens once per process and typically takes a few milliseconds.
+    
+    ```javascript
+    // First call triggers data load
+    const result = geocode(28.6139, 77.2090);
+    // Subsequent calls use in-memory data
+    ```
+  </Step>
+
+  <Step title="Coordinate conversion">
+    Your `lat, lon` coordinates are converted to an H3 cell index at the configured resolution (default: 5).
+    
+    ```javascript
+    // Internally:
+    // (28.6139, 77.2090) -> "8560b68bfffffff"
+    ```
+  </Step>
+
+  <Step title="Primary lookup">
+    lakhua searches the in-memory store for the H3 index. If found, it returns the location metadata immediately.
+    
+    ```javascript
+    {
+      city: "New Delhi",
+      state: "Delhi",
+      district: "Central Delhi",
+      pincode: "110001",
+      matched_h3: "8560b68bfffffff",
+      matched_resolution: 5
+    }
+    ```
+  </Step>
+
+  <Step title="Fallback (if enabled)">
+    If no match is found at resolution 5 and fallback is enabled (default), lakhua walks up to the parent cell at resolution 4 and retries the lookup.
+    
+    This provides broader coverage for coordinates that fall in cells without resolution 5 data.
+  </Step>
+
+  <Step title="Result or null">
+    If a match is found at any resolution level, you receive location details with metadata showing which H3 cell and resolution matched.
+    
+    If no match exists after fallback attempts, lakhua returns `null`/`None`/`nil`.
+  </Step>
+</Steps>
+
+## Fallback behavior
+
+Fallback is enabled by default and provides resilience when exact cells are missing data.
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```javascript
+    // Fallback enabled (default)
+    const result = geocode(lat, lon, { fallback: true });
+    
+    // Fallback disabled - only exact resolution match
+    const result = geocode(lat, lon, { fallback: false });
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+    
+    # Fallback enabled (default)
+    result = geocode(lat, lon, GeocodeOptions(fallback=True))
+    
+    # Fallback disabled
+    result = geocode(lat, lon, GeocodeOptions(fallback=False))
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    import "github.com/aialok/lakhua/libs/go"
+    
+    // Fallback enabled (default)
+    result := lakhua.Geocode(lat, lon, &lakhua.GeocodeOptions{
+        Fallback: lakhua.BoolPtr(true),
+    })
+    
+    // Fallback disabled
+    result := lakhua.Geocode(lat, lon, &lakhua.GeocodeOptions{
+        Fallback: lakhua.BoolPtr(false),
+    })
+    ```
+  </Tab>
+</Tabs>
+
+### When fallback happens
+
+<Accordion title="Resolution 5 has no data">
+  If your coordinate converts to H3 cell `8560b68bfffffff` at resolution 5 but that cell isn't in the dataset, fallback walks up to the parent at resolution 4.
+  
+  ```text
+  8560b68bfffffff (res 5) -> not found
+       ↓
+  8460b68bfffffff (res 4) -> match found
+  ```
+</Accordion>
+
+<Accordion title="Rural or remote areas">
+  Coverage is denser in urban areas. Rural coordinates may only have resolution 4 data, so fallback ensures you still get state or district-level results.
+</Accordion>
+
+<Accordion title="Disabled fallback use case">
+  When you need precise guarantees that results come from your specified resolution only, disable fallback. This is useful when resolution level affects your application logic.
+</Accordion>
+
+## Resolution levels
+
+lakhua supports H3 resolutions 4 and 5. You can configure which resolution to use for converting coordinates to H3 cells.
+
+| Resolution | Average cell size | Typical use case |
+|------------|------------------|------------------|
+| 4 | ~288 km² | State and large district coverage |
+| 5 | ~41 km² | City and district-level lookup (default) |
+
+<Note>
+The `resolution` option only affects how coordinates are converted to H3 indexes. Fallback (when enabled) will still check parent resolutions regardless of your starting resolution.
+</Note>
+
+### Choosing a resolution
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```javascript
+    // Use resolution 5 (default, more precise)
+    const result = geocode(lat, lon, { resolution: 5 });
+    
+    // Use resolution 4 (broader cells)
+    const result = geocode(lat, lon, { resolution: 4 });
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    from lakhua import geocode, GeocodeOptions
+    
+    # Resolution 5 (default)
+    result = geocode(lat, lon, GeocodeOptions(resolution=5))
+    
+    # Resolution 4
+    result = geocode(lat, lon, GeocodeOptions(resolution=4))
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    // Resolution 5 (default)
+    result := lakhua.Geocode(lat, lon, &lakhua.GeocodeOptions{
+        Resolution: 5,
+    })
+    
+    // Resolution 4
+    result := lakhua.Geocode(lat, lon, &lakhua.GeocodeOptions{
+        Resolution: 4,
+    })
+    ```
+  </Tab>
+</Tabs>
+
+## Direct H3 lookup
+
+If you already have H3 indexes from other systems, you can skip coordinate conversion and query directly.
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```javascript
+    import { geocodeH3 } from "@aialok/lakhua";
+    
+    const result = geocodeH3("8560b68bfffffff");
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    from lakhua import geocode_h3
+    
+    result = geocode_h3("8560b68bfffffff")
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    result := lakhua.GeocodeH3("8560b68bfffffff", nil)
+    ```
+  </Tab>
+</Tabs>
+
+Direct H3 lookup uses the same fallback behavior and returns the same result structure as coordinate-based geocoding.
+
+## Debug mode
+
+Enable debug mode to see timing information for data loading and lookup operations.
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```javascript
+    const result = geocode(28.6139, 77.2090, { debug: true });
+    // Console output:
+    // [lakhua][debug] loaded all stores into memory in 8.234ms
+    // [lakhua][debug] lookup key 8560b68bfffffff in r5 took 0.012ms
+    // [lakhua][debug] match found in 0.156ms
+    ```
+  </Tab>
+  <Tab title="Python">
+    ```python
+    result = geocode(28.6139, 77.2090, GeocodeOptions(debug=True))
+    # Output:
+    # [lakhua][debug] loaded all stores into memory in 12.456ms
+    # [lakhua][debug] lookup key 8560b68bfffffff in r5 took 0.023ms
+    ```
+  </Tab>
+  <Tab title="Go">
+    ```go
+    result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+        Debug: true,
+    })
+    // Output:
+    // [lakhua][debug] loaded all stores into memory in 10.234ms
+    // [lakhua][debug] lookup key 8560b68bfffffff in r5 took 0.018ms
+    ```
+  </Tab>
+</Tabs>
+
+Debug mode is useful for profiling cold start performance and understanding lookup behavior in production.

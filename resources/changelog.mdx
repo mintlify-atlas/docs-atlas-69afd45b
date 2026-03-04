@@ -1,0 +1,136 @@
+---
+title: Changelog
+description: Version history and release notes for lakhua
+---
+
+All notable changes to this project are documented in this file.
+
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versioning follows [Semantic Versioning](https://semver.org/).
+
+<Note>
+  lakhua maintains version alignment across all three SDKs (JavaScript, Python, Go).
+</Note>
+
+## Unreleased
+
+<Accordion title="View unreleased changes">
+
+### Added
+- _No changes yet._
+
+### Changed
+- _No changes yet._
+
+</Accordion>
+
+## Version 1.0.0
+
+<Accordion title="Released February 21, 2026">
+
+First stable release of lakhua with full support for JavaScript, Python, and Go.
+
+### Added
+
+- Expanded docs in `docs/` directory:
+  - `getting-started.md` - Quick start guide for all SDKs
+  - `architecture.md` - Technical implementation details
+  - `contributing.md` - Development setup and contribution guidelines
+  - `faq.md` - Common questions and answers
+- Improved root and SDK READMEs with:
+  - Clearer positioning and use case guidance
+  - Runtime compatibility notes for each SDK
+  - Comparison guidance vs hosted APIs
+  - Explicit usage boundaries and limitations
+- Added explicit data-source and indexing attribution:
+  - Uber H3 for hexagonal spatial indexing
+  - OpenStreetMap contributors for geographic data
+- Comprehensive project documentation for better onboarding
+
+### Changed
+
+- **JavaScript SDK**: `geocode()` now returns `null` for out-of-range coordinates instead of allowing invalid H3 conversion
+  - Previously, coordinates outside valid ranges could cause errors during H3 conversion
+  - Now validates input coordinates before processing
+  - Improves error handling and user experience
+- **JavaScript SDK**: Added test coverage for out-of-range coordinate handling
+  - Ensures robust behavior at geographic boundaries
+  - Validates null return behavior for invalid inputs
+
+<Info>
+  This release represents the first production-ready version with stable APIs across all three language SDKs.
+</Info>
+
+</Accordion>
+
+## How to maintain this changelog
+
+<Accordion title="Guidelines for contributors and maintainers">
+
+For every PR, feature, or fix:
+
+### Adding entries
+
+1. Add a short bullet under the **Unreleased** section
+2. Place entries in one of these categories:
+   - **Added** - New features or functionality
+   - **Changed** - Changes to existing functionality
+   - **Fixed** - Bug fixes
+   - **Removed** - Removed features or functionality
+   - **Security** - Security-related changes (if relevant)
+3. Keep bullets user-facing
+   - Focus on what changed, not implementation details
+   - Write from the user's perspective
+   - Include which SDK is affected if change is SDK-specific
+
+### Example entries
+
+<CodeGroup>
+
+```markdown Good
+- **Python SDK**: Added support for custom H3 resolutions 6 and 7
+- **All SDKs**: Fixed memory leak in data loader for long-running processes
+- **JavaScript SDK**: Improved TypeScript type definitions for GeocodeResult
+```
+
+```markdown Avoid
+- Refactored internal data loader implementation
+- Updated dependencies
+- Fixed bug in line 42 of geocoder.ts
+```
+
+</CodeGroup>
+
+### Creating a release
+
+When releasing a new version:
+
+1. Create a new version section:
+   ```markdown
+   ## [x.y.z] - YYYY-MM-DD
+   ```
+2. Move all **Unreleased** bullets into that version section
+3. Organize bullets by category (Added, Changed, Fixed, etc.)
+4. Reset the **Unreleased** section with empty categories
+5. Ensure version numbers match across all SDKs:
+   - `libs/javascript/package.json`
+   - `libs/python/pyproject.toml`
+   - `libs/go` release tag
+6. Update package manager versions before tagging the release
+
+<Warning>
+  Version numbers must be synchronized across all three SDKs to maintain consistency.
+</Warning>
+
+### Semantic versioning
+
+lakhua follows [Semantic Versioning](https://semver.org/):
+
+- **Major** (x.0.0): Breaking changes to public APIs
+- **Minor** (0.x.0): New features, backward-compatible
+- **Patch** (0.0.x): Bug fixes, backward-compatible
+
+<Note>
+  Since lakhua maintains three SDKs, breaking changes in any SDK require a major version bump for all SDKs.
+</Note>
+
+</Accordion>

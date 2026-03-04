@@ -1,0 +1,430 @@
+---
+title: Examples
+description: Real-world code examples for using the lakhua Go SDK
+---
+
+## Basic coordinate lookup
+
+Simplest way to geocode a location:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    // Geocode New Delhi
+    result := lakhua.Geocode(28.6139, 77.2090, nil)
+    if result == nil {
+        fmt.Println("No match found")
+        return
+    }
+    fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+}
+```
+
+**Output:**
+```
+City: New Delhi, State: Delhi
+```
+
+## Handling all result fields
+
+Access all available location details, including optional fields:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    result := lakhua.Geocode(12.9716, 77.5946, nil) // Bengaluru
+    if result == nil {
+        fmt.Println("No match found")
+        return
+    }
+
+    fmt.Printf("City: %s\n", result.City)
+    fmt.Printf("State: %s\n", result.State)
+    
+    if result.District != nil {
+        fmt.Printf("District: %s\n", *result.District)
+    }
+    
+    if result.Pincode != nil {
+        fmt.Printf("Pincode: %s\n", *result.Pincode)
+    }
+    
+    fmt.Printf("Matched H3: %s\n", result.MatchedH3)
+    fmt.Printf("Resolution: %d\n", result.MatchedResolution)
+}
+```
+
+## Batch processing
+
+Geocode multiple locations efficiently using goroutines:
+
+<CodeGroup>
+
+```go Sequential
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    locations := []struct {
+        name string
+        lat  float64
+        lon  float64
+    }{
+        {"New Delhi", 28.6139, 77.2090},
+        {"Mumbai", 19.0760, 72.8777},
+        {"Bengaluru", 12.9716, 77.5946},
+        {"Chennai", 13.0827, 80.2707},
+        {"Kolkata", 22.5726, 88.3639},
+    }
+
+    for _, loc := range locations {
+        result := lakhua.Geocode(loc.lat, loc.lon, nil)
+        if result != nil {
+            fmt.Printf("%s: %s, %s\n", loc.name, result.City, result.State)
+        }
+    }
+}
+```
+
+```go Concurrent
+package main
+
+import (
+    "fmt"
+    "sync"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+type Location struct {
+    name string
+    lat  float64
+    lon  float64
+}
+
+func main() {
+    locations := []Location{
+        {"New Delhi", 28.6139, 77.2090},
+        {"Mumbai", 19.0760, 72.8777},
+        {"Bengaluru", 12.9716, 77.5946},
+        {"Chennai", 13.0827, 80.2707},
+        {"Kolkata", 22.5726, 88.3639},
+    }
+
+    var wg sync.WaitGroup
+    results := make(chan string, len(locations))
+
+    for _, loc := range locations {
+        wg.Add(1)
+        go func(l Location) {
+            defer wg.Done()
+            result := lakhua.Geocode(l.lat, l.lon, nil)
+            if result != nil {
+                results <- fmt.Sprintf("%s: %s, %s", l.name, result.City, result.State)
+            }
+        }(loc)
+    }
+
+    go func() {
+        wg.Wait()
+        close(results)
+    }()
+
+    for result := range results {
+        fmt.Println(result)
+    }
+}
+```
+
+</CodeGroup>
+
+<Note>
+  The data is loaded once per process using `sync.Once`, making concurrent lookups safe and efficient. No synchronization is needed for read operations.
+</Note>
+
+## Debug mode
+
+Enable debug output to see timing information:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    result := lakhua.Geocode(19.0760, 72.8777, &lakhua.GeocodeOptions{
+        Debug: true,
+    })
+    
+    if result != nil {
+        fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+    }
+}
+```
+
+**Output:**
+```
+[lakhua][debug] lookup key 8560145bfffffff in r5 took 0.023ms
+[lakhua][debug] match found in 0.045ms
+City: Mumbai, State: Maharashtra
+```
+
+## Direct H3 lookup
+
+If you already have H3 indices, lookup location details directly:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    // Lookup using a known H3 index
+    result := lakhua.GeocodeH3("8560145bfffffff", nil)
+    if result == nil {
+        fmt.Println("No match found")
+        return
+    }
+    
+    fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+    fmt.Printf("Matched at resolution: %d\n", result.MatchedResolution)
+}
+```
+
+<Note>
+  Direct H3 lookup is useful when you're already working with H3 indices in your application or need to cache H3 values for repeated lookups.
+</Note>
+
+## Custom resolution
+
+Control the granularity of geocoding:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    lat, lon := 28.6139, 77.2090
+
+    // High precision (resolution 5 - ~2.5km hexagons)
+    result5 := lakhua.Geocode(lat, lon, &lakhua.GeocodeOptions{
+        Resolution: 5,
+    })
+
+    // Lower precision (resolution 4 - ~8.5km hexagons)
+    result4 := lakhua.Geocode(lat, lon, &lakhua.GeocodeOptions{
+        Resolution: 4,
+    })
+
+    if result5 != nil {
+        fmt.Printf("Resolution 5: %s (H3: %s)\n", result5.City, result5.MatchedH3)
+    }
+
+    if result4 != nil {
+        fmt.Printf("Resolution 4: %s (H3: %s)\n", result4.City, result4.MatchedH3)
+    }
+}
+```
+
+## Disable fallback
+
+Only check the exact resolution without parent lookups:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    noFallback := false
+    result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+        Fallback: &noFallback,
+    })
+
+    if result == nil {
+        fmt.Println("No match at exact resolution")
+        return
+    }
+
+    fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+    fmt.Printf("Matched at resolution: %d\n", result.MatchedResolution)
+}
+```
+
+<Warning>
+  Disabling fallback may result in more failed lookups, especially in areas with sparse data coverage. Use this only when you need strict resolution matching.
+</Warning>
+
+## Error handling
+
+Handle invalid inputs gracefully:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func geocodeLocation(lat, lon float64) {
+    result := lakhua.Geocode(lat, lon, nil)
+    
+    if result == nil {
+        fmt.Printf("Failed to geocode coordinates: %.4f, %.4f\n", lat, lon)
+        return
+    }
+    
+    fmt.Printf("Success: %s, %s\n", result.City, result.State)
+}
+
+func main() {
+    // Valid coordinates
+    geocodeLocation(28.6139, 77.2090)
+    
+    // Invalid coordinates (out of range)
+    geocodeLocation(999, 999)
+    
+    // Coordinates outside India
+    geocodeLocation(40.7128, -74.0060) // New York
+}
+```
+
+**Output:**
+```
+Success: New Delhi, Delhi
+Failed to geocode coordinates: 999.0000, 999.0000
+Failed to geocode coordinates: 40.7128, -74.0060
+```
+
+## HTTP API wrapper
+
+Create a simple HTTP API for geocoding:
+
+```go
+package main
+
+import (
+    "encoding/json"
+    "fmt"
+    "net/http"
+    "strconv"
+    
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func geocodeHandler(w http.ResponseWriter, r *http.Request) {
+    latStr := r.URL.Query().Get("lat")
+    lonStr := r.URL.Query().Get("lon")
+
+    lat, err1 := strconv.ParseFloat(latStr, 64)
+    lon, err2 := strconv.ParseFloat(lonStr, 64)
+
+    if err1 != nil || err2 != nil {
+        http.Error(w, "Invalid coordinates", http.StatusBadRequest)
+        return
+    }
+
+    result := lakhua.Geocode(lat, lon, nil)
+    if result == nil {
+        http.Error(w, "No match found", http.StatusNotFound)
+        return
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(result)
+}
+
+func main() {
+    http.HandleFunc("/geocode", geocodeHandler)
+    fmt.Println("Server starting on :8080")
+    http.ListenAndServe(":8080", nil)
+}
+```
+
+**Usage:**
+```bash
+curl "http://localhost:8080/geocode?lat=28.6139&lon=77.2090"
+```
+
+**Response:**
+```json
+{
+  "city": "New Delhi",
+  "state": "Delhi",
+  "district": null,
+  "pincode": null,
+  "matched_h3": "8560145bfffffff",
+  "matched_resolution": 5
+}
+```
+
+## Combining with H3 operations
+
+Integrate with the H3 library for advanced geospatial operations:
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+    h3 "github.com/uber/h3-go/v3"
+)
+
+func main() {
+    lat, lon := 28.6139, 77.2090
+    
+    // Convert coordinates to H3 index
+    index := h3.FromGeo(h3.GeoCoord{Latitude: lat, Longitude: lon}, 5)
+    h3String := h3.ToString(index)
+    
+    fmt.Printf("H3 Index: %s\n", h3String)
+    
+    // Get all neighbors
+    neighbors := h3.KRing(index, 1)
+    
+    fmt.Printf("\nGeocoding center and %d neighbors:\n", len(neighbors)-1)
+    
+    for _, neighbor := range neighbors {
+        neighborString := h3.ToString(neighbor)
+        result := lakhua.GeocodeH3(neighborString, nil)
+        
+        if result != nil {
+            fmt.Printf("  %s: %s, %s\n", neighborString, result.City, result.State)
+        }
+    }
+}
+```
+
+<Note>
+  This example shows how to geocode a location and all its neighboring H3 cells, useful for finding nearby locations or coverage analysis.
+</Note>

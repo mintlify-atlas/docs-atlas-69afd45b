@@ -1,0 +1,178 @@
+---
+title: lakhua vs hosted APIs
+description: Compare lakhua's offline approach with hosted reverse geocoding APIs — cost, performance, privacy, and precision tradeoffs
+---
+
+Most reverse geocoding uses hosted services like Google Maps or Mapbox. Those work great if you need global coverage or precise addresses.
+
+lakhua is different. It's not a service you call — it's a library you run.
+
+## The core difference
+
+Hosted APIs are network services. Every lookup is an HTTP request. You need API keys, you pay per request, and you wait for the network round trip.
+
+lakhua loads data once into memory when your app starts. After that, every lookup is just a map operation. No network, no API keys, no per-request costs.
+
+<Info>
+  It's an architectural difference, not just a feature comparison.
+</Info>
+
+## Why this matters for cost
+
+If you're processing millions of GPS coordinates — telemetry streams, batch analytics, high-frequency backend services — hosted APIs scale cost with volume. More requests = higher bills.
+
+lakhua scales with infrastructure you already own. Your CPU and memory handle it. Once the data is loaded, there's no incremental cost per lookup.
+
+### Cost comparison example
+
+For a service processing 10 million coordinate lookups per month:
+
+- **Hosted API**: ~$50-200/month (depending on provider and tier)
+- **lakhua**: $0 additional cost (runs on existing infrastructure)
+
+<Note>
+  The cost savings compound significantly at scale. Services processing hundreds of millions of lookups annually can save thousands of dollars by switching to lakhua.
+</Note>
+
+## Why this matters for performance
+
+Hosted APIs introduce network latency. That latency varies based on geography, network conditions, and provider load. You might see 100ms one minute and 500ms the next.
+
+lakhua runs in-process. After the initial load, lookups are sub-millisecond and consistent. No network variability, no external throttling.
+
+### Performance characteristics
+
+| Metric | Hosted APIs | lakhua |
+|--------|-------------|--------|
+| First lookup | ~100-500ms (network) | ~2-5ms (data load) |
+| Subsequent lookups | ~50-300ms (network) | &lt;1ms (memory) |
+| Latency variance | High (network-dependent) | Minimal (CPU-bound) |
+| Throughput | Rate-limited | CPU-limited |
+| Cold start penalty | Connection establishment | Data file loading |
+
+<Info>
+  lakhua's performance is predictable and doesn't degrade with request volume or geographic distance from API servers.
+</Info>
+
+## Why this matters for privacy
+
+Some systems can't send user coordinates outside their infrastructure. Data residency requirements, compliance restrictions, or air-gapped environments make external APIs non-viable.
+
+lakhua runs entirely offline. Coordinates never leave your system.
+
+### Privacy and compliance benefits
+
+- **Data residency**: All processing happens within your infrastructure
+- **GDPR compliance**: No third-party data sharing for location lookups
+- **Air-gapped deployments**: Works in environments without internet access
+- **Audit trails**: Complete control over logging and monitoring
+
+<Warning>
+  If your application handles sensitive location data or operates in regulated industries, offline geocoding may be a compliance requirement rather than just a preference.
+</Warning>
+
+## Precision tradeoffs
+
+Hosted APIs provide address-level precision with street names, building numbers, and POI data.
+
+lakhua provides city/state/district-level precision with optional pincode data.
+
+### What lakhua returns
+
+```json
+{
+  "city": "Bengaluru",
+  "state": "Karnataka",
+  "district": "Bangalore North",
+  "pincode": "560003",
+  "matchedH3": "8560145bfffffff",
+  "matchedResolution": 5
+}
+```
+
+### What hosted APIs return
+
+Typically includes:
+- Full street address
+- Building/premise name
+- Neighborhood details
+- POI information
+- Formatted address in multiple languages
+
+<Note>
+  If your use case needs city/state/district context rather than exact addresses, lakhua's precision level is sufficient and much faster.
+</Note>
+
+## Coverage tradeoffs
+
+Hosted APIs provide global coverage across all countries and regions.
+
+lakhua covers India only, with a focus on major cities and districts. Rural or remote areas may return `null`.
+
+### When coverage matters
+
+**Use hosted APIs if you need:**
+- Global reverse geocoding
+- Guaranteed coverage for every coordinate
+- Data for rural or remote areas
+- Regular updates as roads and boundaries change
+
+**Use lakhua if you have:**
+- India-specific applications
+- Focus on urban and semi-urban areas
+- Known service areas where coverage has been validated
+- Tolerance for occasional null results in edge cases
+
+## What lakhua doesn't do
+
+It's not trying to replace mapping platforms. It doesn't give you:
+
+- Street addresses or building-level precision
+- Global coverage (India only)
+- Live POI or business data
+- Hosted infrastructure with SLAs
+- Regular automatic data updates
+- Forward geocoding (address to coordinates)
+
+<Warning>
+  If you need any of these features, hosted APIs are the right choice.
+</Warning>
+
+## Decision matrix
+
+Use **lakhua** when:
+- You need high-frequency lookups (millions per day)
+- You're processing batch data or telemetry streams
+- City/state/district precision is sufficient
+- Your service area is India
+- Privacy or compliance requires offline processing
+- You want predictable, low latency (&lt;1ms after load)
+- You want zero incremental cost per lookup
+
+Use **hosted APIs** when:
+- You need address-level precision
+- You need global coverage
+- You need live POI or business data
+- You need guaranteed coverage for all coordinates
+- You want managed infrastructure with SLAs
+- You have low request volumes (thousands per month)
+- You need forward geocoding or routing features
+
+## Hybrid approach
+
+Some applications use both:
+
+1. lakhua for high-frequency, low-precision lookups (analytics, monitoring)
+2. Hosted APIs for user-facing, high-precision features (address display, search)
+
+This optimizes cost and performance while maintaining rich features where needed.
+
+<Info>
+  A common pattern: use lakhua for real-time telemetry processing (millions of lookups), then use hosted APIs only when displaying human-readable addresses in the UI (hundreds of lookups).
+</Info>
+
+## Summary
+
+lakhua is for a specific use case: fast, offline, city/state-level reverse geocoding in India. If that's what you need, it's a better fit than paying for more than you use.
+
+If you need global coverage, address precision, or live data enrichment, hosted APIs remain the right tool.

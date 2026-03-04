@@ -1,0 +1,118 @@
+---
+title: geocode
+description: Reverse geocode latitude/longitude coordinates to India location metadata
+---
+
+## Function signature
+
+```typescript
+function geocode(
+  lat: number,
+  lon: number,
+  options?: GeocodeOptions
+): GeocodeResult | null
+```
+
+## Parameters
+
+<ParamField path="lat" type="number" required>
+  Latitude in decimal degrees. Must be between -90 and 90.
+</ParamField>
+
+<ParamField path="lon" type="number" required>
+  Longitude in decimal degrees. Must be between -180 and 180.
+</ParamField>
+
+<ParamField path="options" type="GeocodeOptions">
+  Optional lookup configuration. See [GeocodeOptions](/api/javascript/types#geocodeoptions) for details.
+  
+  <ParamField path="resolution" type="number" default="5">
+    H3 resolution for coordinate conversion. Valid range: 4-6.
+  </ParamField>
+  
+  <ParamField path="fallback" type="boolean" default="true">
+    Enables parent fallback lookup from current resolution down to resolution 4.
+  </ParamField>
+  
+  <ParamField path="debug" type="boolean" default="false">
+    Prints timing logs for initial load and per-lookup access.
+  </ParamField>
+</ParamField>
+
+## Return type
+
+Returns [`GeocodeResult`](/api/javascript/types#geocoderesult) on successful match, or `null` when:
+- Input coordinates are invalid (non-finite, out of range)
+- No location data exists for the given coordinates
+
+## Description
+
+Reverse geocodes latitude/longitude coordinates into India location metadata. Uses the library's internal singleton geocoder, so you can call this directly without creating any class instance.
+
+The function converts coordinates to an H3 cell index at the specified resolution (default: 5), then looks up location data. When fallback is enabled (default), parent resolutions are checked until resolution 4 if no direct match is found.
+
+<Note>
+  This function uses a singleton geocoder instance internally. The first call will load the required data files, which may take a moment. Subsequent calls will be much faster.
+</Note>
+
+## Examples
+
+### Basic usage
+
+```typescript
+import { geocode } from "lakhua";
+
+const result = geocode(28.6139, 77.2090);
+
+if (result) {
+  console.log(result.city);      // "New Delhi"
+  console.log(result.state);     // "Delhi"
+  console.log(result.pincode);   // "110001"
+}
+```
+
+### With custom resolution
+
+```typescript
+import { geocode } from "lakhua";
+
+const result = geocode(28.6139, 77.2090, { 
+  resolution: 6 
+});
+```
+
+### Disable fallback
+
+```typescript
+import { geocode } from "lakhua";
+
+// Only check exact resolution, no parent lookup
+const result = geocode(28.6139, 77.2090, { 
+  fallback: false 
+});
+```
+
+### Debug mode
+
+```typescript
+import { geocode } from "lakhua";
+
+const result = geocode(28.6139, 77.2090, { 
+  debug: true 
+});
+// Console output:
+// [lakhua][debug] lookup key 8561891bfffffff in r5 took 0.123ms
+// [lakhua][debug] match found in 0.456ms
+```
+
+### Handle null results
+
+```typescript
+import { geocode } from "lakhua";
+
+const result = geocode(0, 0); // Coordinates outside India
+
+if (result === null) {
+  console.log("No location data found");
+}
+```

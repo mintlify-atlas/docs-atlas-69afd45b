@@ -1,0 +1,274 @@
+---
+title: Contributing
+description: Development setup, testing, and pull request process for lakhua contributors
+---
+
+Thanks for contributing to lakhua!
+
+## Development setup
+
+Clone the repository and work in the SDK you want to change.
+
+<CodeGroup>
+
+```bash JavaScript / TypeScript
+cd libs/javascript
+bun install
+bun run check
+```
+
+```bash Python
+cd libs/python
+pip install -e ".[dev]"
+pytest
+ruff check .
+mypy lakhua
+```
+
+```bash Go
+cd libs/go
+go test ./...
+go vet ./...
+```
+
+</CodeGroup>
+
+<Info>
+  Each SDK has its own development workflow. Make sure you're in the correct directory before running setup commands.
+</Info>
+
+## Repository structure
+
+The lakhua repository is organized as a monorepo:
+
+```
+lakhua/
+├── libs/
+│   ├── javascript/    # JavaScript/TypeScript SDK
+│   ├── python/        # Python SDK
+│   └── go/            # Go SDK
+├── docs/              # Documentation markdown files
+├── tools/             # Data generation pipeline
+└── benchmarks/        # Performance testing
+```
+
+## Contribution rules
+
+When contributing to lakhua, please follow these guidelines:
+
+### Cross-SDK consistency
+
+<Note>
+  Keep cross-SDK behavior aligned (defaults, fallback, return shape).
+</Note>
+
+All three SDKs (JavaScript, Python, Go) should maintain consistent behavior:
+
+- Default resolution: `5`
+- Supported lookup resolutions: `4`, `5`
+- Fallback default: enabled
+- Output fields: city/state + optional district/pincode + matched H3 metadata
+- Option names should be equivalent across languages (e.g., `debug`, `fallback`, `resolution`)
+
+### Backward compatibility
+
+<Warning>
+  Prefer backward-compatible changes. Breaking changes require major version bumps and clear migration guides.
+</Warning>
+
+When making changes:
+- Avoid removing or renaming public APIs
+- Add new options rather than changing existing ones
+- Deprecate before removing (with warnings)
+- Document migration paths for breaking changes
+
+### Testing requirements
+
+<Note>
+  Add or update tests for behavior changes.
+</Note>
+
+Every functional change should include:
+
+- **Unit tests**: Test individual functions and edge cases
+- **Integration tests**: Test the full geocoding flow
+- **Cross-SDK validation**: Ensure equivalent behavior across languages
+
+### Documentation
+
+<Info>
+  Keep data files and API docs consistent.
+</Info>
+
+When updating functionality:
+- Update the SDK's README if public API changes
+- Update relevant files in `docs/` if behavior changes
+- Add examples for new features
+- Update TypeScript types, Python type hints, or Go interfaces
+
+### Dependencies
+
+<Warning>
+  Avoid adding heavy dependencies without strong reason.
+</Warning>
+
+Before adding a new dependency:
+- Check if functionality can be implemented without it
+- Consider the size impact on the package
+- Ensure it's actively maintained and well-tested
+- Discuss in an issue before adding major dependencies
+
+## Pull request checklist
+
+Before submitting your PR, ensure:
+
+- [ ] Tests pass in affected SDK(s)
+- [ ] Lint/type checks pass where applicable
+- [ ] Public docs are updated (`README` or `docs/`)
+- [ ] Changes are scoped and easy to review
+- [ ] Commit messages are clear and descriptive
+- [ ] No unrelated changes are included
+
+### Running checks
+
+<CodeGroup>
+
+```bash JavaScript / TypeScript
+cd libs/javascript
+bun run check  # runs tests, type check, and linting
+```
+
+```bash Python
+cd libs/python
+pytest                    # run tests
+ruff check .              # linting
+mypy lakhua               # type checking
+```
+
+```bash Go
+cd libs/go
+go test ./...             # run tests
+go vet ./...              # static analysis
+```
+
+</CodeGroup>
+
+## Reporting issues
+
+When reporting bugs or incorrect geocoding results, include:
+
+<Note>
+  Detailed issue reports help us reproduce and fix problems faster.
+</Note>
+
+### Required information
+
+1. **Exact input**: Provide the `lat/lon` coordinates or H3 index
+2. **Expected output**: What result did you expect?
+3. **Actual output**: What result did you get (or was it `null`/`None`/`nil`)?
+4. **SDK + version**: Which language SDK and version number?
+5. **Minimal reproduction snippet**: A small code example that reproduces the issue
+
+### Example issue report
+
+```markdown
+## Incorrect result for coordinates in Mumbai
+
+**Input**: `19.0760, 72.8777`
+**Expected**: City: "Mumbai", State: "Maharashtra"
+**Actual**: `null`
+
+**SDK**: JavaScript v1.0.0
+
+**Reproduction**:
+```js
+import { geocode } from "@aialok/lakhua";
+const result = geocode(19.0760, 72.8777);
+console.log(result); // null
+```
+
+**Options used**: Default (fallback enabled, resolution 5)
+```
+
+## Working with data files
+
+The `reverse_geo_4.json` and `reverse_geo_5.json` files contain the H3-indexed location data.
+
+<Info>
+  Data files are generated using tools in the `tools/` directory from OpenStreetMap data.
+</Info>
+
+### Data file format
+
+```json
+{
+  "8560145bfffffff": {
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "district": "Bangalore North",
+    "pincode": "560003"
+  }
+}
+```
+
+- **Key**: H3 cell index as a string
+- **Value**: Location metadata object
+  - `city` (required)
+  - `state` (required)
+  - `district` (optional)
+  - `pincode` (optional)
+
+### Updating data files
+
+<Warning>
+  Do not manually edit data files. Use the data generation pipeline in `tools/`.
+</Warning>
+
+To update data:
+1. Modify the data generation scripts in `tools/`
+2. Run the pipeline to regenerate JSON files
+3. Copy updated files to all SDK `data/` directories
+4. Test all SDKs to ensure compatibility
+5. Document changes in CHANGELOG.md
+
+## Code style
+
+Each SDK follows language-specific conventions:
+
+- **JavaScript/TypeScript**: Uses Biome for formatting and linting
+- **Python**: Uses Ruff for linting and Black-compatible formatting
+- **Go**: Uses standard `go fmt` and `go vet`
+
+<Note>
+  Run the respective linters before committing. Most IDEs can auto-format on save.
+</Note>
+
+## Release process
+
+<Info>
+  Releases are coordinated across all SDKs to maintain version alignment.
+</Info>
+
+When preparing a release:
+
+1. Update version numbers in:
+   - `libs/javascript/package.json`
+   - `libs/python/pyproject.toml`
+   - `libs/go` git tag
+2. Update `CHANGELOG.md` with release notes
+3. Create a git tag with the version number
+4. Publish to npm (JavaScript), PyPI (Python), and tag for Go
+
+<Warning>
+  Only maintainers can publish releases. Contributors should focus on PRs to the main branch.
+</Warning>
+
+## Getting help
+
+If you have questions about contributing:
+
+- Open a GitHub Discussion for general questions
+- Comment on relevant issues for specific feature discussions
+- Tag maintainers in your PR if you need feedback
+
+We appreciate your contributions to making lakhua better!

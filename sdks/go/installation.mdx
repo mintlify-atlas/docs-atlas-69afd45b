@@ -1,0 +1,113 @@
+---
+title: Installation
+description: Install the lakhua Go SDK for offline reverse geocoding in India
+---
+
+## Prerequisites
+
+The lakhua Go SDK requires:
+
+- **Go 1.21 or higher**
+- No external API keys or configuration
+
+## Install the package
+
+<Steps>
+  <Step title="Install via go get">
+    Run the following command in your project directory:
+
+    ```bash
+    go get github.com/aialok/lakhua/libs/go
+    ```
+
+    This will download the SDK and all its dependencies, including the bundled geographic data files.
+  </Step>
+
+  <Step title="Import in your code">
+    Import the package in your Go files:
+
+    ```go
+    import lakhua "github.com/aialok/lakhua/libs/go"
+    ```
+  </Step>
+
+  <Step title="Start geocoding">
+    You're ready to use lakhua! No configuration or initialization needed:
+
+    ```go
+    result := lakhua.Geocode(28.6139, 77.2090, nil)
+    if result != nil {
+        fmt.Println(result.City, result.State)
+    }
+    ```
+  </Step>
+</Steps>
+
+## Dependencies
+
+The lakhua Go SDK has a single external dependency:
+
+- **github.com/uber/h3-go/v3** (v3.7.1) - H3 geospatial indexing library
+
+All dependencies are automatically installed when you run `go get`.
+
+<Note>
+  The geographic data files are bundled with the module. There's no need to download or configure data files separately.
+</Note>
+
+## Verify installation
+
+Create a simple test file to verify the installation:
+
+```go test.go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    // Geocode New Delhi coordinates
+    result := lakhua.Geocode(28.6139, 77.2090, nil)
+    if result == nil {
+        fmt.Println("No match found")
+        return
+    }
+    fmt.Printf("City: %s, State: %s\n", result.City, result.State)
+}
+```
+
+Run it:
+
+```bash
+go run test.go
+```
+
+You should see output similar to:
+
+```
+City: New Delhi, State: Delhi
+```
+
+## Module requirements
+
+If you're using Go modules (recommended), add the following to your `go.mod`:
+
+```go go.mod
+module your-project
+
+go 1.21
+
+require github.com/aialok/lakhua/libs/go v1.0.0
+```
+
+Then run:
+
+```bash
+go mod tidy
+```
+
+<Note>
+  The data is loaded into memory on the first geocoding call using `sync.Once`. This means the first call may take slightly longer (typically 10-50ms depending on system I/O), but all subsequent calls are sub-millisecond map lookups.
+</Note>

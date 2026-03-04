@@ -1,0 +1,262 @@
+---
+title: Usage
+description: Learn how to use the lakhua Python SDK for reverse geocoding
+---
+
+## Import the library
+
+The lakhua SDK provides two main functions for reverse geocoding:
+
+```python
+from lakhua import geocode, geocode_h3
+```
+
+You can also import type definitions for options and results:
+
+```python
+from lakhua import GeocodeOptions, GeocodeResult, LocationDetails
+```
+
+<Note>
+  `LocationDetails` is an alias for `GeocodeResult` and is kept for backward compatibility.
+</Note>
+
+## Core functions
+
+### geocode()
+
+Reverse geocodes latitude/longitude coordinates into India location metadata.
+
+```python
+def geocode(
+    lat: float,
+    lon: float,
+    options: Optional[GeocodeOptions] = None,
+) -> Optional[GeocodeResult]:
+```
+
+**Parameters:**
+
+- `lat` (float): Latitude in decimal degrees
+- `lon` (float): Longitude in decimal degrees
+- `options` (Optional[GeocodeOptions]): Lookup options such as fallback and debug logging
+
+**Returns:**
+
+- `GeocodeResult` object with matched location details, or `None` if the input is invalid or no match exists
+
+**Example:**
+
+```python
+from lakhua import geocode
+
+result = geocode(28.6139, 77.2090)  # New Delhi
+if result:
+    print(f"{result.city}, {result.state}")
+```
+
+### geocode_h3()
+
+Reverse geocodes an H3 cell index directly, without converting from coordinates.
+
+```python
+def geocode_h3(
+    h3_index: str,
+    options: Optional[GeocodeOptions] = None,
+) -> Optional[GeocodeResult]:
+```
+
+**Parameters:**
+
+- `h3_index` (str): H3 cell index string (e.g., "8560145bfffffff")
+- `options` (Optional[GeocodeOptions]): Lookup options such as fallback and debug logging
+
+**Returns:**
+
+- `GeocodeResult` object with matched location details, or `None` if the input is invalid or no match exists
+
+**Example:**
+
+```python
+from lakhua import geocode_h3
+
+result = geocode_h3("8560145bfffffff")
+if result:
+    print(f"{result.city}, {result.state}")
+```
+
+<Note>
+  When fallback is enabled (default), `geocode_h3()` checks parent resolutions until the minimum supported resolution if no exact match is found.
+</Note>
+
+## Configuration options
+
+Use `GeocodeOptions` to customize geocoding behavior:
+
+```python
+from dataclasses import dataclass
+
+@dataclass
+class GeocodeOptions:
+    resolution: int = 5       # H3 resolution level
+    fallback: bool = True     # Enable parent cell fallback
+    debug: bool = False       # Enable debug logging
+```
+
+### resolution
+
+H3 resolution to use when converting coordinates to H3 cells.
+
+- **Default**: `5` (city-level accuracy, ~73 km² cells)
+- **Range**: 4-5
+- Higher resolutions give finer geographic detail but may have less data coverage
+- Lower resolutions cover larger areas and have broader coverage
+
+```python
+from lakhua import geocode, GeocodeOptions
+
+# Use resolution 4 for broader coverage
+result = geocode(28.6139, 77.2090, GeocodeOptions(resolution=4))
+```
+
+### fallback
+
+Whether to check parent H3 cells if the exact cell has no data.
+
+- **Default**: `True`
+- When enabled, if coordinates don't match any data at resolution 5, lakhua automatically checks the parent cell at resolution 4
+- This increases the chance of finding a match, though at lower geographic precision
+
+```python
+from lakhua import geocode, GeocodeOptions
+
+# Disable fallback to only check resolution 5
+result = geocode(28.6139, 77.2090, GeocodeOptions(fallback=False))
+```
+
+### debug
+
+Enable debug logging to see timing information for data loading and lookups.
+
+- **Default**: `False`
+- When enabled, lakhua prints messages showing load time and lookup timing
+- Useful for performance analysis
+
+```python
+from lakhua import geocode, GeocodeOptions
+
+# Enable debug mode
+result = geocode(28.6139, 77.2090, GeocodeOptions(debug=True))
+# Prints: "Loaded data in X ms", "Lookup took Y ms", etc.
+```
+
+## Result structure
+
+The `GeocodeResult` dataclass contains location details and match metadata:
+
+```python
+from dataclasses import dataclass
+from typing import Optional
+
+@dataclass
+class GeocodeResult:
+    city: str                    # City or town name
+    state: str                   # State or union territory name
+    matched_h3: str              # H3 cell ID that was matched
+    matched_resolution: int      # Resolution level where match was found
+    district: Optional[str]      # District name (when available)
+    pincode: Optional[str]       # Postal code (when available)
+```
+
+### Fields
+
+<Tabs>
+  <Tab title="city">
+    Name of the city or town.
+
+    ```python
+    result = geocode(12.9716, 77.5946)
+    print(result.city)  # "Bengaluru"
+    ```
+  </Tab>
+
+  <Tab title="state">
+    Name of the state or union territory.
+
+    ```python
+    result = geocode(12.9716, 77.5946)
+    print(result.state)  # "Karnataka"
+    ```
+  </Tab>
+
+  <Tab title="matched_h3">
+    The H3 cell ID that was found in the database. This may be the exact H3 cell for your input coordinates, or a parent cell if fallback was used.
+
+    ```python
+    result = geocode(12.9716, 77.5946)
+    print(result.matched_h3)  # "8560145bfffffff"
+    ```
+  </Tab>
+
+  <Tab title="matched_resolution">
+    The H3 resolution level where the match was found.
+
+    - Resolution 5: city-level accuracy (~73 km² cells)
+    - Resolution 4: state/region-level accuracy (~410 km² cells)
+
+    ```python
+    result = geocode(12.9716, 77.5946)
+    print(result.matched_resolution)  # 5
+    ```
+  </Tab>
+
+  <Tab title="district">
+    District name, when available in the dataset. May be `None` if not available.
+
+    ```python
+    result = geocode(12.9716, 77.5946)
+    if result.district:
+        print(result.district)  # "Bangalore Urban"
+    ```
+  </Tab>
+
+  <Tab title="pincode">
+    Postal code (PIN code), when available in the dataset. May be `None` if not available.
+
+    ```python
+    result = geocode(12.9716, 77.5946)
+    if result.pincode:
+        print(result.pincode)  # "560001"
+    ```
+  </Tab>
+</Tabs>
+
+## Singleton geocoder
+
+The `geocode()` and `geocode_h3()` functions use an internal singleton geocoder, so you can call them directly without creating any class instance.
+
+<Warning>
+  Data is loaded into memory once on the first call to `geocode()` or `geocode_h3()`. This may take a few milliseconds. All subsequent lookups are in-memory dictionary reads with sub-millisecond latency.
+</Warning>
+
+### Advanced usage
+
+For explicit control over the singleton lifecycle (e.g., in testing), you can use the advanced class APIs:
+
+```python
+from lakhua import ReverseGeocoder, DataLoader
+
+# Get the singleton instance
+geocoder = ReverseGeocoder.get_instance()
+data_loader = DataLoader.get_instance()
+```
+
+<Note>
+  Most users should use the `geocode()` and `geocode_h3()` functions. The class APIs are only needed for advanced use cases like testing or custom singleton lifecycle management.
+</Note>
+
+## Next steps
+
+See real-world examples of using lakhua:
+
+- [Examples](/sdks/python/examples) - Batch processing, debug mode, and more

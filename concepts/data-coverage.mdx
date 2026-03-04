@@ -1,0 +1,389 @@
+---
+title: Data coverage
+description: Learn about India coverage, H3 resolutions, available fields, and limitations in lakhua
+---
+
+lakhua provides reverse geocoding coverage for India using OpenStreetMap data indexed with H3 resolutions 4 and 5.
+
+## Geographic coverage
+
+lakhua's dataset focuses exclusively on India, including all states, union territories, and major administrative regions.
+
+<Info>
+lakhua is designed for India-specific use cases. Coordinates outside India will return `null` as the dataset does not include other countries.
+</Info>
+
+### Coverage density
+
+Coverage varies by region type:
+
+- **Urban areas**: Dense coverage at both resolutions 4 and 5, including cities, districts, and many pincodes
+- **Suburban areas**: Good coverage with city and district data, partial pincode availability
+- **Rural areas**: Sparser coverage, primarily at resolution 4 with state and district information
+- **Remote regions**: Limited coverage; some coordinates may return `null` even with fallback enabled
+
+### Major regions covered
+
+lakhua includes data for:
+
+- All 28 states
+- 8 union territories
+- Major cities (metros, tier-1, tier-2, tier-3)
+- Districts and tehsils where OSM data is available
+- Postal codes for covered urban areas
+
+<Note>
+Coverage quality depends on OpenStreetMap data completeness. Areas with limited OSM administrative boundary data may have reduced coverage.
+</Note>
+
+## H3 resolution levels
+
+lakhua uses two H3 resolution levels to balance precision and file size.
+
+### Resolution 4
+
+- **Average cell size**: ~288 km²
+- **Use case**: Broad regional coverage, fallback for missing resolution 5 cells
+- **Data file size**: ~237 KB
+- **Typical results**: State, district, sometimes city
+
+<Accordion title="When resolution 4 is used">
+Resolution 4 data is used in two scenarios:
+
+1. **Explicit configuration**: When you set `resolution: 4` in options
+2. **Fallback**: When resolution 5 has no match and fallback is enabled (default)
+
+Resolution 4 provides broader coverage in rural and remote areas where finer-grained resolution 5 cells may not have data.
+</Accordion>
+
+### Resolution 5
+
+- **Average cell size**: ~41 km²
+- **Use case**: City and district-level lookups (default)
+- **Data file size**: ~1.1 MB
+- **Typical results**: City, state, district, pincode (when available)
+
+<Accordion title="When resolution 5 is used">
+Resolution 5 is the default for coordinate-based geocoding:
+
+```javascript
+// Default uses resolution 5
+const result = geocode(28.6139, 77.2090);
+
+// Explicit resolution 5
+const result = geocode(28.6139, 77.2090, { resolution: 5 });
+```
+
+Resolution 5 provides more precise results in urban areas with denser data coverage.
+</Accordion>
+
+### Resolution comparison
+
+<Tabs>
+  <Tab title="Urban coordinates">
+    ```javascript
+    // Bengaluru city center (resolution 5)
+    geocode(12.9716, 77.5946, { resolution: 5 });
+    // Returns:
+    // {
+    //   city: "Bengaluru",
+    //   state: "Karnataka",
+    //   district: "Bangalore North",
+    //   pincode: "560003"
+    // }
+    
+    // Same location (resolution 4)
+    geocode(12.9716, 77.5946, { resolution: 4 });
+    // Returns:
+    // {
+    //   city: "Bengaluru",
+    //   state: "Karnataka",
+    //   district: "Bangalore Urban"
+    // }
+    ```
+  </Tab>
+  
+  <Tab title="Rural coordinates">
+    ```javascript
+    // Rural area in Madhya Pradesh
+    geocode(23.8103, 78.1184, { resolution: 5 });
+    // May return null if no resolution 5 data
+    
+    // Same location with fallback (default)
+    geocode(23.8103, 78.1184, { resolution: 5, fallback: true });
+    // Falls back to resolution 4:
+    // {
+    //   city: "Sagar",
+    //   state: "Madhya Pradesh",
+    //   district: "Sagar"
+    // }
+    ```
+  </Tab>
+</Tabs>
+
+## Available fields
+
+lakhua returns up to six fields in a successful geocode result.
+
+### Location fields
+
+<Tabs>
+  <Tab title="city">
+    **Type**: `string` (required)
+    
+    The city or town name from OpenStreetMap administrative boundaries.
+    
+    ```javascript
+    result.city; // "New Delhi"
+    ```
+    
+    This field is always present in successful lookups. In rural areas, it may represent the nearest town or administrative center.
+  </Tab>
+  
+  <Tab title="state">
+    **Type**: `string` (required)
+    
+    The Indian state or union territory name.
+    
+    ```javascript
+    result.state; // "Karnataka"
+    ```
+    
+    This field is always present and uses official state names as recorded in OpenStreetMap.
+  </Tab>
+  
+  <Tab title="district">
+    **Type**: `string | null` (optional)
+    
+    The district, tehsil, or sub-district name.
+    
+    ```javascript
+    result.district; // "Bangalore North" or null
+    ```
+    
+    Availability varies by region. Urban areas typically have district data; rural areas may not.
+  </Tab>
+  
+  <Tab title="pincode">
+    **Type**: `string | null` (optional)
+    
+    The 6-digit Indian postal code.
+    
+    ```javascript
+    result.pincode; // "560003" or null
+    ```
+    
+    Pincode data is available for many urban areas but is not comprehensive. Rural pincodes are often missing.
+  </Tab>
+</Tabs>
+
+### Metadata fields
+
+<Tabs>
+  <Tab title="matched_h3">
+    **Type**: `string` (always present)
+    
+    The H3 cell index that matched your lookup.
+    
+    ```javascript
+    result.matched_h3; // "8560145bfffffff"
+    ```
+    
+    This is useful for debugging, caching, or integrating with other H3-based systems.
+  </Tab>
+  
+  <Tab title="matched_resolution">
+    **Type**: `number` (always present)
+    
+    The H3 resolution level where the match was found.
+    
+    ```javascript
+    result.matched_resolution; // 5 or 4
+    ```
+    
+    If fallback occurred, this will show `4` instead of your requested `5`, indicating the match came from the parent cell.
+  </Tab>
+</Tabs>
+
+## Limitations
+
+Understanding lakhua's limitations helps you determine if it's the right tool for your use case.
+
+### Geographic scope
+
+<Note>
+lakhua only covers India. Coordinates outside Indian boundaries will always return `null`.
+</Note>
+
+```javascript
+// London, UK - returns null
+const result = geocode(51.5074, -0.1278);
+// result => null
+
+// New Delhi, India - returns data
+const result = geocode(28.6139, 77.2090);
+// result => { city: "New Delhi", ... }
+```
+
+### Precision level
+
+lakhua provides city and district-level results, not address-level precision.
+
+<Accordion title="What lakhua provides">
+- City or town name
+- State
+- District (when available)
+- Pincode (when available)
+- Administrative region information
+</Accordion>
+
+<Accordion title="What lakhua does NOT provide">
+- Street names
+- Building numbers
+- Neighborhood names (except where they match districts)
+- Landmarks or points of interest
+- Formatted addresses
+</Accordion>
+
+### Coverage gaps
+
+Not every coordinate in India will return a result.
+
+**Reasons for null results**:
+
+1. **OSM data gaps**: Area not mapped in OpenStreetMap administrative boundaries
+2. **Sparse rural coverage**: H3 cell exists but has no associated location data
+3. **Fallback disabled**: Resolution 5 has no data and you disabled fallback
+4. **Invalid input**: Coordinates outside valid latitude/longitude ranges
+
+```javascript
+// Sparsely populated or unmapped area
+const result = geocode(35.5074, 77.5772);
+// result => null (even with fallback enabled)
+```
+
+<Note>
+If you encounter coordinates in well-populated areas that return `null`, please [open an issue](https://github.com/aialok/lakhua/issues) with the specific coordinates so the dataset can be improved.
+</Note>
+
+### Data freshness
+
+lakhua uses precomputed datasets based on OpenStreetMap snapshots.
+
+- **Static data**: Location metadata is fixed at SDK release time
+- **No live updates**: Changes to OSM boundaries don't reflect until the next dataset regeneration
+- **Update cadence**: Dataset updates happen periodically with new SDK releases
+
+<Info>
+For applications that need real-time data or frequent boundary changes, consider using online geocoding APIs that query live databases.
+</Info>
+
+## Data quality and accuracy
+
+### Source quality
+
+lakhua's accuracy depends on OpenStreetMap data quality:
+
+- **Well-mapped areas**: Urban centers typically have high-quality, complete data
+- **Community-maintained**: OSM accuracy varies based on local contributor activity
+- **Administrative boundaries**: Some regions may have disputed or imprecise boundaries in OSM
+
+### Field accuracy
+
+| Field | Accuracy expectations |
+|-------|----------------------|
+| `city` | High - based on OSM administrative boundaries |
+| `state` | Very high - official state boundaries |
+| `district` | Medium - depends on OSM district mapping completeness |
+| `pincode` | Medium - postal code boundaries are approximate |
+
+<Accordion title="Pincode accuracy considerations">
+Pincode boundaries don't always align with H3 hexagons. lakhua returns the most likely pincode for a given cell, but edge cases near postal code boundaries may return adjacent pincodes.
+
+For critical postal applications, validate pincodes against authoritative sources.
+</Accordion>
+
+## Checking coverage
+
+You can test coverage for specific coordinates before integrating lakhua.
+
+<Tabs>
+  <Tab title="JavaScript">
+    ```javascript
+    import { geocode } from "@aialok/lakhua";
+    
+    const coords = [
+      [28.6139, 77.2090], // Delhi
+      [19.0760, 72.8777], // Mumbai
+      [13.0827, 80.2707], // Chennai
+    ];
+    
+    coords.forEach(([lat, lon]) => {
+      const result = geocode(lat, lon);
+      console.log(`[${lat}, ${lon}]:`, result ? "✓ covered" : "✗ no data");
+    });
+    ```
+  </Tab>
+  
+  <Tab title="Python">
+    ```python
+    from lakhua import geocode
+    
+    coords = [
+        (28.6139, 77.2090),  # Delhi
+        (19.0760, 72.8777),  # Mumbai
+        (13.0827, 80.2707),  # Chennai
+    ]
+    
+    for lat, lon in coords:
+        result = geocode(lat, lon)
+        status = "✓ covered" if result else "✗ no data"
+        print(f"[{lat}, {lon}]: {status}")
+    ```
+  </Tab>
+  
+  <Tab title="Go">
+    ```go
+    import "github.com/aialok/lakhua/libs/go"
+    
+    coords := [][2]float64{
+        {28.6139, 77.2090}, // Delhi
+        {19.0760, 72.8777}, // Mumbai
+        {13.0827, 80.2707}, // Chennai
+    }
+    
+    for _, coord := range coords {
+        result := lakhua.Geocode(coord[0], coord[1], nil)
+        status := "✗ no data"
+        if result != nil {
+            status = "✓ covered"
+        }
+        fmt.Printf("[%.4f, %.4f]: %s\n", coord[0], coord[1], status)
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Improving coverage
+
+lakhua's coverage improves as OpenStreetMap data improves.
+
+### Contributing to OSM
+
+You can help improve lakhua's coverage by contributing to OpenStreetMap:
+
+1. Visit [openstreetmap.org](https://www.openstreetmap.org)
+2. Find areas in India with missing or incomplete administrative boundaries
+3. Add or update boundary relations following [OSM wiki guidelines](https://wiki.openstreetmap.org/wiki/Tag:boundary%3Dadministrative)
+4. Your contributions will be included in future lakhua dataset updates
+
+### Reporting coverage issues
+
+If you find coordinates that should have coverage but return `null`:
+
+1. Verify the coordinate is within India
+2. Test with fallback enabled: `{ fallback: true }`
+3. Check if the area is mapped in [OpenStreetMap](https://www.openstreetmap.org)
+4. [Open a GitHub issue](https://github.com/aialok/lakhua/issues) with the coordinates and expected location
+
+The lakhua maintainers periodically regenerate datasets to incorporate new OSM data and coverage improvements.

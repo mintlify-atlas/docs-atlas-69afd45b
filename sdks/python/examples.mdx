@@ -1,0 +1,326 @@
+---
+title: Examples
+description: Real-world code examples for using the lakhua Python SDK
+---
+
+## Basic coordinate lookup
+
+The simplest way to use lakhua is to call `geocode()` with latitude and longitude:
+
+```python
+from lakhua import geocode
+
+# Reverse geocode coordinates for New Delhi
+result = geocode(28.6139, 77.2090)
+
+if result:
+    print(f"City: {result.city}")
+    print(f"State: {result.state}")
+    print(f"District: {result.district}")
+    print(f"PIN Code: {result.pincode}")
+    print(f"Matched H3: {result.matched_h3}")
+    print(f"Resolution: {result.matched_resolution}")
+else:
+    print("No match found")
+```
+
+<Note>
+  The function returns `None` if the input is invalid or no match exists in the database.
+</Note>
+
+## Multiple locations
+
+<Tabs>
+  <Tab title="Sequential processing">
+    Process multiple coordinates in a loop:
+
+    ```python
+    from lakhua import geocode
+
+    # List of Indian cities
+    coordinates = [
+        (28.6139, 77.2090),  # New Delhi
+        (19.0760, 72.8777),  # Mumbai
+        (12.9716, 77.5946),  # Bengaluru
+        (13.0827, 80.2707),  # Chennai
+        (22.5726, 88.3639),  # Kolkata
+    ]
+
+    for lat, lon in coordinates:
+        result = geocode(lat, lon)
+        if result:
+            print(f"{result.city}, {result.state}")
+        else:
+            print(f"No match for ({lat}, {lon})")
+    ```
+  </Tab>
+
+  <Tab title="Batch processing">
+    Process coordinates in batches and collect results:
+
+    ```python
+    from lakhua import geocode
+    from typing import List, Tuple, Optional
+
+    def batch_geocode(
+        coordinates: List[Tuple[float, float]]
+    ) -> List[Optional[dict]]:
+        """Batch reverse geocode multiple coordinates."""
+        results = []
+        
+        for lat, lon in coordinates:
+            result = geocode(lat, lon)
+            if result:
+                results.append({
+                    "lat": lat,
+                    "lon": lon,
+                    "city": result.city,
+                    "state": result.state,
+                    "district": result.district,
+                    "pincode": result.pincode,
+                })
+            else:
+                results.append(None)
+        
+        return results
+
+    # Process a batch
+    coords = [
+        (28.6139, 77.2090),
+        (19.0760, 72.8777),
+        (12.9716, 77.5946),
+    ]
+
+    results = batch_geocode(coords)
+    print(f"Processed {len(results)} locations")
+    print(f"Successful matches: {sum(1 for r in results if r)}")
+    ```
+  </Tab>
+</Tabs>
+
+## Direct H3 lookup
+
+If you already have H3 cell indices, use `geocode_h3()` to look them up directly:
+
+```python
+from lakhua import geocode_h3
+
+# Look up an H3 cell index
+result = geocode_h3("8560145bfffffff")
+
+if result:
+    print(f"H3 cell {result.matched_h3} is in {result.city}, {result.state}")
+else:
+    print("No match found for this H3 index")
+```
+
+<Note>
+  This is faster than `geocode()` because it skips the lat/lon to H3 conversion step.
+</Note>
+
+## Debug mode
+
+Enable debug logging to see timing information for data loading and lookups:
+
+```python
+from lakhua import geocode, GeocodeOptions
+
+# Enable debug mode
+options = GeocodeOptions(debug=True)
+result = geocode(19.076, 72.8777, options)
+
+# Debug output will be printed to stdout:
+# "Loaded resolution 5 data in 45.2 ms"
+# "Lookup took 0.3 ms"
+
+if result:
+    print(f"{result.city}, {result.state}")
+```
+
+<Warning>
+  Debug mode prints to stdout. This is useful for development and performance analysis, but should be disabled in production.
+</Warning>
+
+## Disable fallback
+
+By default, lakhua checks parent H3 cells if no exact match is found. You can disable this behavior:
+
+```python
+from lakhua import geocode, GeocodeOptions
+
+# Only check resolution 5, no parent lookup
+options = GeocodeOptions(fallback=False)
+result = geocode(28.6139, 77.2090, options)
+
+if result:
+    print(f"Found at resolution {result.matched_resolution}")
+else:
+    print("No exact match at resolution 5")
+```
+
+## Custom resolution
+
+Change the H3 resolution level for coordinate-to-H3 conversion:
+
+<CodeGroup>
+```python Resolution 5 (default)
+from lakhua import geocode, GeocodeOptions
+
+# Resolution 5 provides city-level accuracy (~73 km² cells)
+options = GeocodeOptions(resolution=5)
+result = geocode(12.9716, 77.5946, options)
+
+if result:
+    print(f"City: {result.city}")
+    print(f"Resolution: {result.matched_resolution}")
+```
+
+```python Resolution 4
+from lakhua import geocode, GeocodeOptions
+
+# Resolution 4 provides state/region-level accuracy (~410 km² cells)
+options = GeocodeOptions(resolution=4)
+result = geocode(12.9716, 77.5946, options)
+
+if result:
+    print(f"City: {result.city}")
+    print(f"Resolution: {result.matched_resolution}")
+```
+</CodeGroup>
+
+## Handling None results
+
+Always check if the result is `None` before accessing its fields:
+
+```python
+from lakhua import geocode
+
+def safe_geocode(lat: float, lon: float) -> str:
+    """Safely geocode and return a formatted string."""
+    result = geocode(lat, lon)
+    
+    if result is None:
+        return f"Unknown location ({lat}, {lon})"
+    
+    # Build a formatted string with available fields
+    parts = [result.city, result.state]
+    
+    if result.district:
+        parts.insert(1, result.district)
+    
+    if result.pincode:
+        parts.append(f"PIN: {result.pincode}")
+    
+    return ", ".join(parts)
+
+# Test with various coordinates
+print(safe_geocode(28.6139, 77.2090))
+print(safe_geocode(12.9716, 77.5946))
+print(safe_geocode(0.0, 0.0))  # Invalid/no match
+```
+
+## Performance testing
+
+Measure lookup performance with batch processing:
+
+```python
+import time
+from lakhua import geocode
+
+# Generate test coordinates
+test_coords = [
+    (28.6139, 77.2090),
+    (19.0760, 72.8777),
+    (12.9716, 77.5946),
+    (13.0827, 80.2707),
+    (22.5726, 88.3639),
+] * 1000  # 5,000 lookups
+
+# Warm up (load data into memory)
+geocade(test_coords[0][0], test_coords[0][1])
+
+# Measure batch performance
+start = time.time()
+
+for lat, lon in test_coords:
+    result = geocode(lat, lon)
+
+end = time.time()
+elapsed_ms = (end - start) * 1000
+avg_per_lookup = elapsed_ms / len(test_coords)
+
+print(f"Total time: {elapsed_ms:.2f} ms")
+print(f"Average per lookup: {avg_per_lookup:.3f} ms")
+print(f"Lookups per second: {len(test_coords) / (elapsed_ms / 1000):.0f}")
+```
+
+## Integration with pandas
+
+Process a DataFrame of coordinates:
+
+```python
+import pandas as pd
+from lakhua import geocode
+
+# Create a sample DataFrame
+df = pd.DataFrame({
+    "latitude": [28.6139, 19.0760, 12.9716, 13.0827, 22.5726],
+    "longitude": [77.2090, 72.8777, 77.5946, 80.2707, 88.3639],
+})
+
+# Apply geocoding to each row
+def extract_location(row):
+    result = geocode(row["latitude"], row["longitude"])
+    if result:
+        return pd.Series({
+            "city": result.city,
+            "state": result.state,
+            "district": result.district,
+            "pincode": result.pincode,
+        })
+    return pd.Series({
+        "city": None,
+        "state": None,
+        "district": None,
+        "pincode": None,
+    })
+
+# Apply to DataFrame
+location_data = df.apply(extract_location, axis=1)
+df = pd.concat([df, location_data], axis=1)
+
+print(df)
+```
+
+## Type hints
+
+lakhua is fully typed. Use type hints in your code:
+
+```python
+from typing import Optional
+from lakhua import geocode, GeocodeResult, GeocodeOptions
+
+def get_city_name(lat: float, lon: float) -> Optional[str]:
+    """Get the city name for given coordinates."""
+    result: Optional[GeocodeResult] = geocode(lat, lon)
+    return result.city if result else None
+
+def geocode_with_options(
+    lat: float,
+    lon: float,
+    resolution: int = 5,
+    fallback: bool = True,
+    debug: bool = False,
+) -> Optional[GeocodeResult]:
+    """Geocode with custom options."""
+    options = GeocodeOptions(
+        resolution=resolution,
+        fallback=fallback,
+        debug=debug,
+    )
+    return geocode(lat, lon, options)
+
+# Type checkers like mypy will validate these calls
+city = get_city_name(28.6139, 77.2090)
+result = geocode_with_options(12.9716, 77.5946, resolution=4)
+```

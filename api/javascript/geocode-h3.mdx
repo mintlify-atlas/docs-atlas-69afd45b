@@ -1,0 +1,140 @@
+---
+title: geocodeH3
+description: Reverse geocode an H3 cell index directly to India location metadata
+---
+
+## Function signature
+
+```typescript
+function geocodeH3(
+  h3Index: string,
+  options?: GeocodeOptions
+): GeocodeResult | null
+```
+
+## Parameters
+
+<ParamField path="h3Index" type="string" required>
+  H3 cell index string. Must be a valid H3 index at any resolution between 4 and 6.
+</ParamField>
+
+<ParamField path="options" type="GeocodeOptions">
+  Optional lookup configuration. See [GeocodeOptions](/api/javascript/types#geocodeoptions) for details.
+  
+  <ParamField path="fallback" type="boolean" default="true">
+    Enables parent fallback lookup from current resolution down to resolution 4.
+  </ParamField>
+  
+  <ParamField path="debug" type="boolean" default="false">
+    Prints timing logs for initial load and per-lookup access.
+  </ParamField>
+</ParamField>
+
+<Note>
+  The `resolution` option is not used in `geocodeH3` since the resolution is determined from the input H3 index itself.
+</Note>
+
+## Return type
+
+Returns [`GeocodeResult`](/api/javascript/types#geocoderesult) on successful match, or `null` when:
+- Input H3 index is invalid
+- No location data exists for the given H3 cell
+
+## Description
+
+Reverse geocodes an H3 cell index directly to India location metadata. Uses the library's internal singleton geocoder.
+
+When fallback is enabled (default), the function attempts lookup at the input resolution first, then checks parent resolutions down to resolution 4 until a match is found. This allows for graceful degradation when exact cell data is unavailable.
+
+<Note>
+  This function uses a singleton geocoder instance internally. The first call will load the required data files, which may take a moment. Subsequent calls will be much faster.
+</Note>
+
+## Examples
+
+### Basic usage
+
+```typescript
+import { geocodeH3 } from "lakhua";
+
+const result = geocodeH3("866189b1fffffff");
+
+if (result) {
+  console.log(result.city);                // "Mumbai"
+  console.log(result.state);               // "Maharashtra"
+  console.log(result.matched_h3);          // "866189b1fffffff"
+  console.log(result.matched_resolution);  // 6
+}
+```
+
+### With fallback enabled (default)
+
+```typescript
+import { geocodeH3 } from "lakhua";
+
+// If exact match not found at resolution 6, 
+// tries parent cells at resolution 5, then 4
+const result = geocodeH3("866189b1fffffff", { 
+  fallback: true 
+});
+
+if (result) {
+  // Check which resolution actually matched
+  console.log(result.matched_resolution); // May be 6, 5, or 4
+}
+```
+
+### Disable fallback
+
+```typescript
+import { geocodeH3 } from "lakhua";
+
+// Only check the exact H3 cell, no parent lookup
+const result = geocodeH3("866189b1fffffff", { 
+  fallback: false 
+});
+```
+
+### Debug mode
+
+```typescript
+import { geocodeH3 } from "lakhua";
+
+const result = geocodeH3("866189b1fffffff", { 
+  debug: true 
+});
+// Console output:
+// [lakhua][debug] lookup key 866189b1fffffff in r6 took 0.089ms
+// [lakhua][debug] match found in 0.234ms
+```
+
+### Handle invalid input
+
+```typescript
+import { geocodeH3 } from "lakhua";
+
+const result = geocodeH3("invalid-h3-index");
+
+if (result === null) {
+  console.log("Invalid H3 index or no data found");
+}
+```
+
+### Working with different resolutions
+
+```typescript
+import { geocodeH3 } from "lakhua";
+import { latLngToCell } from "h3-js";
+
+// Generate H3 index at resolution 5
+const h3Res5 = latLngToCell(28.6139, 77.2090, 5);
+const result5 = geocodeH3(h3Res5);
+
+// Generate H3 index at resolution 6
+const h3Res6 = latLngToCell(28.6139, 77.2090, 6);
+const result6 = geocodeH3(h3Res6);
+
+// Compare matched resolutions
+console.log(result5?.matched_resolution); // 5
+console.log(result6?.matched_resolution); // Could be 6, 5, or 4
+```

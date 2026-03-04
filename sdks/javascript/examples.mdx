@@ -1,0 +1,312 @@
+---
+title: Examples
+description: Real-world code examples for using the lakhua JavaScript SDK
+---
+
+## Basic geocoding
+
+Reverse geocode a single coordinate pair:
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+// Geocode coordinates for New Delhi
+const location = geocode(28.6139, 77.2090);
+
+if (location) {
+  console.log(`City: ${location.city}`);
+  console.log(`State: ${location.state}`);
+  console.log(`Matched H3: ${location.matched_h3}`);
+  console.log(`Resolution: ${location.matched_resolution}`);
+} else {
+  console.log('Location not found');
+}
+```
+
+**Output:**
+```
+City: New Delhi
+State: Delhi
+Matched H3: 866189b1fffffff
+Resolution: 5
+```
+
+## Batch processing
+
+Geocode multiple locations efficiently:
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+const coordinates: Array<[number, number]> = [
+  [28.6139, 77.2090],  // New Delhi
+  [19.0760, 72.8777],  // Mumbai
+  [12.9716, 77.5946],  // Bangalore
+  [22.5726, 88.3639],  // Kolkata
+  [13.0827, 80.2707],  // Chennai
+];
+
+// Process all locations
+const results = coordinates.map(([lat, lon]) => {
+  const location = geocode(lat, lon);
+  return location ? {
+    coordinates: [lat, lon],
+    city: location.city,
+    state: location.state,
+    pincode: location.pincode,
+  } : null;
+});
+
+// Filter out null results
+const validResults = results.filter(r => r !== null);
+console.log(`Geocoded ${validResults.length} out of ${coordinates.length} locations`);
+console.log(validResults);
+```
+
+## Debug mode
+
+Enable debug logging for performance analysis:
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+// Enable debug logs to see timing information
+const result = geocode(28.6139, 77.2090, {
+  debug: true
+});
+
+console.log(result);
+```
+
+**Console output:**
+```
+[lakhua][debug] lookup key 866189b1fffffff in r5 took 0.123ms
+[lakhua][debug] match found in 1.456ms
+{
+  city: 'New Delhi',
+  state: 'Delhi',
+  matched_h3: '866189b1fffffff',
+  matched_resolution: 5
+}
+```
+
+## Direct H3 lookup
+
+Geocode using H3 cell indices directly:
+
+```typescript
+import { geocodeH3 } from '@aialok/lakhua';
+
+// If you already have H3 indices from another source
+const h3Indices = [
+  '866189b1fffffff',
+  '866194d7fffffff',
+  '8661831dfffffff',
+];
+
+const results = h3Indices.map(h3Index => {
+  const location = geocodeH3(h3Index);
+  return location ? {
+    h3: h3Index,
+    city: location.city,
+    state: location.state,
+    resolution: location.matched_resolution,
+  } : null;
+});
+
+console.log(results);
+```
+
+## Custom resolution
+
+Control the H3 resolution for coordinate conversion:
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+const lat = 28.6139;
+const lon = 77.2090;
+
+// Try resolution 5 (default, more precise)
+const result5 = geocode(lat, lon, { resolution: 5 });
+console.log('Resolution 5:', result5?.city);
+
+// Try resolution 4 (broader coverage)
+const result4 = geocode(lat, lon, { resolution: 4 });
+console.log('Resolution 4:', result4?.city);
+
+// Compare matched H3 indices
+if (result5 && result4) {
+  console.log('R5 H3:', result5.matched_h3);
+  console.log('R4 H3:', result4.matched_h3);
+}
+```
+
+## Disable fallback
+
+Disable parent resolution fallback for exact matching:
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+// Only match at the specified resolution (no fallback)
+const result = geocode(28.6139, 77.2090, {
+  resolution: 5,
+  fallback: false
+});
+
+if (result) {
+  console.log(`Exact match at resolution ${result.matched_resolution}`);
+} else {
+  console.log('No exact match found at resolution 5');
+}
+```
+
+## Error handling
+
+Handle invalid inputs gracefully:
+
+```typescript
+import { geocode, geocodeH3 } from '@aialok/lakhua';
+
+// Invalid coordinates
+const invalid1 = geocode(999, 999);  // null - out of range
+const invalid2 = geocode(NaN, 77);   // null - not a number
+
+// Invalid H3 index
+const invalid3 = geocodeH3('invalid'); // null - malformed H3
+
+// Valid but no match
+const invalid4 = geocode(0, 0);      // null - not in India dataset
+
+// Safe usage pattern
+function safeGeocode(lat: number, lon: number) {
+  try {
+    const result = geocode(lat, lon);
+    
+    if (result === null) {
+      return {
+        success: false,
+        error: 'Location not found or invalid coordinates'
+      };
+    }
+    
+    return {
+      success: true,
+      data: result
+    };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    };
+  }
+}
+
+const outcome = safeGeocode(28.6139, 77.2090);
+if (outcome.success) {
+  console.log('Success:', outcome.data);
+} else {
+  console.error('Error:', outcome.error);
+}
+```
+
+## TypeScript types
+
+Use lakhua's exported types for type-safe code:
+
+```typescript
+import { 
+  geocode, 
+  type GeocodeResult,
+  type GeocodeOptions,
+  type LocationDetails 
+} from '@aialok/lakhua';
+
+// Type-safe options
+const options: GeocodeOptions = {
+  resolution: 5,
+  fallback: true,
+  debug: false
+};
+
+// Type-safe result handling
+function processLocation(result: GeocodeResult | null): LocationDetails | null {
+  if (!result) return null;
+  
+  // Extract only location details (without match metadata)
+  return {
+    city: result.city,
+    state: result.state,
+    district: result.district,
+    pincode: result.pincode
+  };
+}
+
+const result = geocode(28.6139, 77.2090, options);
+const location = processLocation(result);
+```
+
+## Using the ReverseGeocoder class
+
+For advanced scenarios requiring explicit control:
+
+```typescript
+import { ReverseGeocoder } from '@aialok/lakhua';
+
+// Get the singleton instance
+const geocoder = ReverseGeocoder.getInstance();
+
+// Use the instance methods
+const result1 = geocoder.geocode(28.6139, 77.2090);
+const result2 = geocoder.geocodeH3('866189b1fffffff');
+
+// With options
+const result3 = geocoder.geocode(19.0760, 72.8777, {
+  resolution: 5,
+  fallback: true,
+  debug: true
+});
+
+console.log(result1, result2, result3);
+```
+
+<Note>
+  The `ReverseGeocoder` class uses a singleton pattern. Multiple calls to `getInstance()` return the same instance, ensuring data is loaded only once.
+</Note>
+
+## Performance tips
+
+<Steps>
+  <Step title="Use batch processing for multiple lookups">
+    Process arrays of coordinates using `map()` instead of individual calls to reduce overhead.
+    
+    ```typescript
+    const results = coordinates.map(([lat, lon]) => geocode(lat, lon));
+    ```
+  </Step>
+  
+  <Step title="Disable fallback for speed">
+    If you only need exact matches, disable fallback to skip parent resolution checks.
+    
+    ```typescript
+    const result = geocode(lat, lon, { fallback: false });
+    ```
+  </Step>
+  
+  <Step title="Use geocodeH3() when possible">
+    If you already have H3 indices, use `geocodeH3()` to skip coordinate-to-H3 conversion.
+    
+    ```typescript
+    const result = geocodeH3(h3Index);
+    ```
+  </Step>
+  
+  <Step title="Enable debug mode during development">
+    Use debug mode to identify performance bottlenecks during development.
+    
+    ```typescript
+    const result = geocode(lat, lon, { debug: true });
+    ```
+  </Step>
+</Steps>

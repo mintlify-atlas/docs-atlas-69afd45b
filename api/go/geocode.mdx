@@ -1,0 +1,84 @@
+---
+title: Geocode
+description: Reverse geocode coordinates to location details
+---
+
+## Function signature
+
+```go
+func Geocode(lat float64, lon float64, options *GeocodeOptions) *GeocodeResult
+```
+
+Reverse geocodes latitude and longitude coordinates to location details including city, state, district, and pincode.
+
+## Parameters
+
+<ParamField path="lat" type="float64" required>
+  Latitude coordinate (-90 to 90)
+</ParamField>
+
+<ParamField path="lon" type="float64" required>
+  Longitude coordinate (-180 to 180)
+</ParamField>
+
+<ParamField path="options" type="*GeocodeOptions">
+  Optional configuration for geocoding behavior. See [GeocodeOptions](/api/go/types#geocodeoptions) for available fields.
+</ParamField>
+
+## Returns
+
+<ResponseField name="result" type="*GeocodeResult">
+  Returns a pointer to a [GeocodeResult](/api/go/types#geocoderesult) containing location details and H3 match information. Returns `nil` if no match is found or if coordinates are invalid.
+</ResponseField>
+
+## Examples
+
+### Basic usage
+
+```go
+package main
+
+import (
+    "fmt"
+    lakhua "github.com/aialok/lakhua/libs/go"
+)
+
+func main() {
+    result := lakhua.Geocode(28.6139, 77.2090, nil)
+    if result == nil {
+        fmt.Println("no match")
+        return
+    }
+    fmt.Printf("city=%s state=%s\n", result.City, result.State)
+}
+```
+
+### With options
+
+```go
+result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+    Resolution: 6,
+    Debug: true,
+})
+if result != nil {
+    fmt.Printf("matched_h3=%s matched_resolution=%d\n", 
+        result.MatchedH3, result.MatchedResolution)
+}
+```
+
+### Disable fallback
+
+```go
+fallback := false
+result := lakhua.Geocode(28.6139, 77.2090, &lakhua.GeocodeOptions{
+    Resolution: 6,
+    Fallback: &fallback,
+})
+```
+
+<Note>
+  The function validates input coordinates and returns `nil` for:
+  - Invalid ranges (lat outside -90 to 90, lon outside -180 to 180)
+  - NaN or infinite values
+  - Coordinates outside India when no match is found
+</Note>

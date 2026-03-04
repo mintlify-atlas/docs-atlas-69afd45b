@@ -1,0 +1,73 @@
+---
+title: Installation
+description: Install the lakhua JavaScript SDK for offline reverse geocoding in India
+---
+
+## Package manager
+
+Install lakhua using your preferred package manager:
+
+<CodeGroup>
+
+```bash npm
+npm install @aialok/lakhua
+```
+
+```bash pnpm
+pnpm add @aialok/lakhua
+```
+
+```bash bun
+bun add @aialok/lakhua
+```
+
+```bash yarn
+yarn add @aialok/lakhua
+```
+
+</CodeGroup>
+
+## Runtime compatibility
+
+The lakhua JavaScript SDK is compatible with:
+
+- **Node.js** 18+ (ESM modules)
+- **Bun** 1.0+
+- Other JavaScript runtimes that support ESM and the `h3-js` library
+
+<Note>
+  The library uses ESM (ECMAScript modules) format. Ensure your project is configured to support ES modules.
+</Note>
+
+## Package size
+
+The `@aialok/lakhua` package includes:
+
+- **Core library**: Lightweight TypeScript implementation
+- **Data files**: Pre-indexed H3 datasets for resolutions 4 and 5
+- **Total package size**: ~2-3 MB (includes offline geocoding data)
+
+<Warning>
+  The package includes offline data files for India boundaries. This enables zero-dependency reverse geocoding without API calls, but increases the package size.
+</Warning>
+
+## Dependencies
+
+Lakhua has a single runtime dependency:
+
+- **h3-js**: Hexagonal hierarchical geospatial indexing system
+
+All dependencies are automatically installed when you add the package.
+
+## Verify installation
+
+After installation, verify lakhua is working correctly:
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+const result = geocode(28.6139, 77.2090);
+console.log(result);
+```
+
+If the installation is successful, you should see location details for the provided coordinates (New Delhi).

@@ -1,0 +1,197 @@
+---
+title: Usage
+description: Learn how to use the lakhua JavaScript SDK for reverse geocoding
+---
+
+## Import the library
+
+Lakhua provides two main functions for reverse geocoding:
+
+```typescript
+import { geocode, geocodeH3 } from '@aialok/lakhua';
+```
+
+## geocode() function
+
+Reverse geocode latitude and longitude coordinates into location metadata.
+
+### Function signature
+
+```typescript
+function geocode(
+  lat: number,
+  lon: number,
+  options?: GeocodeOptions
+): GeocodeResult | null
+```
+
+### Parameters
+
+- **lat** `number` - Latitude in decimal degrees (-90 to 90)
+- **lon** `number` - Longitude in decimal degrees (-180 to 180)
+- **options** `GeocodeOptions` (optional) - Lookup configuration
+
+### Basic usage
+
+```typescript
+import { geocode } from '@aialok/lakhua';
+
+// Geocode coordinates for New Delhi
+const result = geocode(28.6139, 77.2090);
+
+if (result) {
+  console.log(result.city);      // "New Delhi"
+  console.log(result.state);     // "Delhi"
+  console.log(result.district);  // Optional field
+  console.log(result.pincode);   // Optional field
+}
+```
+
+## geocodeH3() function
+
+Reverse geocode an H3 cell index directly without coordinate conversion.
+
+### Function signature
+
+```typescript
+function geocodeH3(
+  h3Index: string,
+  options?: GeocodeOptions
+): GeocodeResult | null
+```
+
+### Parameters
+
+- **h3Index** `string` - Valid H3 cell index at any resolution
+- **options** `GeocodeOptions` (optional) - Lookup configuration
+
+### Basic usage
+
+```typescript
+import { geocodeH3 } from '@aialok/lakhua';
+
+// Direct H3 lookup
+const result = geocodeH3('866189b1fffffff');
+
+if (result) {
+  console.log(result.matched_h3);         // H3 index that matched
+  console.log(result.matched_resolution); // Resolution level (4 or 5)
+}
+```
+
+## Options
+
+Both `geocode()` and `geocodeH3()` accept an optional `GeocodeOptions` object:
+
+```typescript
+interface GeocodeOptions {
+  /** H3 resolution for coordinate conversion. Default: 5 */
+  resolution?: number;
+  
+  /** Enable parent fallback lookup. Default: true */
+  fallback?: boolean;
+  
+  /** Print debug timing logs. Default: false */
+  debug?: boolean;
+}
+```
+
+### Option details
+
+<Tabs>
+  <Tab title="resolution">
+    Sets the H3 resolution (4 or 5) for converting coordinates to H3 cells in `geocode()`.
+    
+    - **Default**: `5` (higher precision)
+    - **Range**: `4` to `5` (clamped automatically)
+    - Only affects `geocode()`, not `geocodeH3()`
+    
+    ```typescript
+    // Use resolution 4 for broader matching
+    const result = geocode(28.6139, 77.2090, { resolution: 4 });
+    ```
+  </Tab>
+  
+  <Tab title="fallback">
+    When enabled, lakhua checks parent H3 cells if no match is found at the current resolution.
+    
+    - **Default**: `true`
+    - Fallback order: resolution 5 → resolution 4
+    - Improves match coverage for boundary areas
+    
+    ```typescript
+    // Disable fallback for exact matching only
+    const result = geocode(28.6139, 77.2090, { fallback: false });
+    ```
+  </Tab>
+  
+  <Tab title="debug">
+    Enables detailed timing logs for performance analysis.
+    
+    - **Default**: `false`
+    - Logs initial load time and per-lookup access time
+    - Useful for debugging and optimization
+    
+    ```typescript
+    // Enable debug logs
+    const result = geocode(28.6139, 77.2090, { debug: true });
+    // Console: [lakhua][debug] lookup key ... took 0.123ms
+    // Console: [lakhua][debug] match found in 1.456ms
+    ```
+  </Tab>
+</Tabs>
+
+## Result structure
+
+Successful geocoding returns a `GeocodeResult` object:
+
+```typescript
+interface GeocodeResult {
+  // Location metadata
+  city: string;           // City or locality name
+  state: string;          // State or union territory
+  district?: string;      // District (optional)
+  pincode?: string;       // Postal code (optional)
+  
+  // Match metadata
+  matched_h3: string;         // H3 index that matched
+  matched_resolution: number; // Resolution level (4 or 5)
+}
+```
+
+### Handling null results
+
+Both functions return `null` when:
+
+- Input coordinates are invalid or out of range
+- H3 index is invalid
+- No matching location is found in the dataset
+
+```typescript
+const result = geocode(lat, lon);
+
+if (result === null) {
+  console.log('Location not found or invalid input');
+} else {
+  console.log(`Found: ${result.city}, ${result.state}`);
+}
+```
+
+## Advanced usage
+
+For advanced scenarios requiring explicit control, use the `ReverseGeocoder` class:
+
+```typescript
+import { ReverseGeocoder } from '@aialok/lakhua';
+
+const geocoder = ReverseGeocoder.getInstance();
+const result = geocoder.geocode(28.6139, 77.2090, {
+  resolution: 5,
+  fallback: true,
+  debug: true
+});
+```
+
+<Note>
+  Most users should use the top-level `geocode()` and `geocodeH3()` functions. The `ReverseGeocoder` class is for advanced use cases requiring singleton control.
+</Note>
