@@ -18,10 +18,10 @@ type GeocodeOptions struct {
 ### Fields
 
 <ResponseField name="Resolution" type="int">
-  H3 resolution level for geocoding (0-15). Higher values provide finer granularity.
+  H3 resolution level for geocoding. Higher values provide finer granularity.
   
-  - Default: 6
-  - Valid range: 0-15 (automatically clamped to valid H3 resolutions)
+  - Default: 5
+  - Valid range: 4-5 (automatically clamped to supported resolutions)
 </ResponseField>
 
 <ResponseField name="Fallback" type="*bool">
@@ -129,3 +129,57 @@ if result != nil {
     fmt.Printf("Resolution: %d\n", result.MatchedResolution)
 }
 ```
+
+---
+
+## Singleton functions
+
+The Go SDK provides singleton accessor functions for advanced usage scenarios.
+
+### GetGeocoder
+
+Returns the singleton `ReverseGeocoder` instance.
+
+```go
+func GetGeocoder() *ReverseGeocoder
+```
+
+The singleton is created lazily on first call using `sync.Once` for thread-safe initialization. All subsequent calls return the same instance.
+
+**Example:**
+
+```go
+import "github.com/aialok/lakhua/libs/go"
+
+geocoder := lakhua.GetGeocoder()
+result := geocoder.Geocode(28.6139, 77.2090, nil)
+```
+
+<Note>
+  For typical usage, prefer the top-level `Geocode()` and `GeocodeH3()` functions which use this singleton internally. Direct access is only needed for custom lifecycle management or testing.
+</Note>
+
+### GetDataLoader
+
+Returns the singleton `ReverseGeoDataLoader` instance.
+
+```go
+func GetDataLoader() *ReverseGeoDataLoader
+```
+
+The data loader manages loading and caching of H3 resolution data files. It is initialized lazily and shared across all geocoding operations.
+
+**Example:**
+
+```go
+import "github.com/aialok/lakhua/libs/go"
+
+loader := lakhua.GetDataLoader()
+
+// For testing: clear the cache to force data reload
+loader.ClearStoreCache()
+```
+
+<Warning>
+  Direct data loader access is primarily intended for testing scenarios. Production code should use the high-level geocoding functions which manage the data loader automatically.
+</Warning>

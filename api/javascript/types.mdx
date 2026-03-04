@@ -18,7 +18,7 @@ interface GeocodeOptions {
 ### Fields
 
 <ResponseField name="resolution" type="number" default="5">
-  H3 resolution for coordinate conversion in `geocode(lat, lon)`. Valid range: 4-6. Higher resolutions provide more granular cells.
+  H3 resolution for coordinate conversion in `geocode(lat, lon)`. Valid range: 4-5. Higher resolutions provide more granular cells.
   
   This option only applies to the `geocode` function. It is ignored in `geocodeH3` since the resolution is determined from the input H3 index.
 </ResponseField>
@@ -64,7 +64,7 @@ interface GeocodeResult extends LocationDetails {
 </ResponseField>
 
 <ResponseField name="matched_resolution" type="number">
-  The H3 resolution level at which the match was found (4, 5, or 6). Useful for understanding whether fallback occurred.
+  The H3 resolution level at which the match was found (4 or 5). Useful for understanding whether fallback occurred.
 </ResponseField>
 
 <ResponseField name="city" type="string">
@@ -86,7 +86,7 @@ interface GeocodeResult extends LocationDetails {
 ### Example
 
 ```typescript
-import { geocode } from "lakhua";
+import { geocode } from "@aialok/lakhua";
 
 const result = geocode(28.6139, 77.2090);
 
@@ -175,4 +175,74 @@ const store: ReverseGeoStore = {
 
 <Note>
   Most users will not interact with `ReverseGeoStore` directly. It is primarily used by advanced users implementing custom data loaders.
+</Note>
+
+---
+
+## Constants
+
+The JavaScript SDK exports several constants that define the supported H3 resolution levels and data file configuration.
+
+### Resolution constants
+
+```typescript
+const MIN_RESOLUTION = 4;
+const MAX_RESOLUTION = 5;
+const DEFAULT_RESOLUTION = 5;
+const SUPPORTED_RESOLUTIONS = [4, 5] as const;
+```
+
+<ResponseField name="MIN_RESOLUTION" type="number" value="4">
+  Minimum supported H3 resolution for lookup. This is the coarsest resolution level supported by lakhua.
+</ResponseField>
+
+<ResponseField name="MAX_RESOLUTION" type="number" value="5">
+  Maximum supported H3 resolution for lookup. This is the finest resolution level supported by lakhua.
+</ResponseField>
+
+<ResponseField name="DEFAULT_RESOLUTION" type="number" value="5">
+  Default H3 resolution used for `geocode(lat, lon)` coordinate conversion when no resolution option is specified.
+</ResponseField>
+
+<ResponseField name="SUPPORTED_RESOLUTIONS" type="readonly [4, 5]">
+  Array of all supported resolution levels. This defines which resolution data files are preloaded into memory.
+</ResponseField>
+
+### Data file constants
+
+```typescript
+const DATA_DIR_NAME = "data";
+const DATA_FILE_PREFIX = "reverse_geo_";
+```
+
+<ResponseField name="DATA_DIR_NAME" type="string" value='"data"'>
+  Relative folder name where reverse geocoding JSON files are stored within the package.
+</ResponseField>
+
+<ResponseField name="DATA_FILE_PREFIX" type="string" value='"reverse_geo_"'>
+  Prefix used by reverse geocoding data files. Data files follow the pattern `reverse_geo_{resolution}.json`.
+</ResponseField>
+
+### Example usage
+
+```typescript
+import { 
+  MIN_RESOLUTION, 
+  MAX_RESOLUTION, 
+  DEFAULT_RESOLUTION,
+  SUPPORTED_RESOLUTIONS,
+  geocode 
+} from "@aialok/lakhua";
+
+console.log(`Supported resolutions: ${MIN_RESOLUTION}-${MAX_RESOLUTION}`);
+// Output: Supported resolutions: 4-5
+
+// Use a custom resolution within the supported range
+const result = geocode(28.6139, 77.2090, {
+  resolution: MIN_RESOLUTION  // Use coarsest resolution
+});
+```
+
+<Note>
+  These constants are useful when building custom geocoding workflows or validating user input for resolution values.
 </Note>

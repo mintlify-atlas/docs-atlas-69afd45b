@@ -55,7 +55,7 @@ When fallback is enabled (default), the function attempts lookup at the input re
 ### Basic usage
 
 ```typescript
-import { geocodeH3 } from "lakhua";
+import { geocodeH3 } from "@aialok/lakhua";
 
 const result = geocodeH3("866189b1fffffff");
 
@@ -70,7 +70,7 @@ if (result) {
 ### With fallback enabled (default)
 
 ```typescript
-import { geocodeH3 } from "lakhua";
+import { geocodeH3 } from "@aialok/lakhua";
 
 // If exact match not found at resolution 6, 
 // tries parent cells at resolution 5, then 4
@@ -87,7 +87,7 @@ if (result) {
 ### Disable fallback
 
 ```typescript
-import { geocodeH3 } from "lakhua";
+import { geocodeH3 } from "@aialok/lakhua";
 
 // Only check the exact H3 cell, no parent lookup
 const result = geocodeH3("866189b1fffffff", { 
@@ -98,7 +98,7 @@ const result = geocodeH3("866189b1fffffff", {
 ### Debug mode
 
 ```typescript
-import { geocodeH3 } from "lakhua";
+import { geocodeH3 } from "@aialok/lakhua";
 
 const result = geocodeH3("866189b1fffffff", { 
   debug: true 
@@ -111,7 +111,7 @@ const result = geocodeH3("866189b1fffffff", {
 ### Handle invalid input
 
 ```typescript
-import { geocodeH3 } from "lakhua";
+import { geocodeH3 } from "@aialok/lakhua";
 
 const result = geocodeH3("invalid-h3-index");
 
@@ -123,7 +123,7 @@ if (result === null) {
 ### Working with different resolutions
 
 ```typescript
-import { geocodeH3 } from "lakhua";
+import { geocodeH3 } from "@aialok/lakhua";
 import { latLngToCell } from "h3-js";
 
 // Generate H3 index at resolution 5

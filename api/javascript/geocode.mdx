@@ -60,7 +60,7 @@ The function converts coordinates to an H3 cell index at the specified resolutio
 ### Basic usage
 
 ```typescript
-import { geocode } from "lakhua";
+import { geocode } from "@aialok/lakhua";
 
 const result = geocode(28.6139, 77.2090);
 
@@ -74,7 +74,7 @@ if (result) {
 ### With custom resolution
 
 ```typescript
-import { geocode } from "lakhua";
+import { geocode } from "@aialok/lakhua";
 
 const result = geocode(28.6139, 77.2090, { 
   resolution: 6 
@@ -84,7 +84,7 @@ const result = geocode(28.6139, 77.2090, {
 ### Disable fallback
 
 ```typescript
-import { geocode } from "lakhua";
+import { geocode } from "@aialok/lakhua";
 
 // Only check exact resolution, no parent lookup
 const result = geocode(28.6139, 77.2090, { 
@@ -95,7 +95,7 @@ const result = geocode(28.6139, 77.2090, {
 ### Debug mode
 
 ```typescript
-import { geocode } from "lakhua";
+import { geocode } from "@aialok/lakhua";
 
 const result = geocode(28.6139, 77.2090, { 
   debug: true 
@@ -108,7 +108,7 @@ const result = geocode(28.6139, 77.2090, {
 ### Handle null results
 
 ```typescript
-import { geocode } from "lakhua";
+import { geocode } from "@aialok/lakhua";
 
 const result = geocode(0, 0); // Coordinates outside India
 
