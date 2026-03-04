@@ -1,0 +1,110 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Lakhua",
+  "projectDescription": "Lightweight, blazing fast offline reverse geocoding for India using H3 and OpenStreetMap",
+  "theme": "palm",
+  "primaryColor": "#10B981",
+  "lightColor": "#34D399",
+  "darkColor": "#059669",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/how-it-works",
+              "concepts/architecture",
+              "concepts/data-coverage"
+            ]
+          },
+          {
+            "group": "JavaScript SDK",
+            "pages": [
+              "sdks/javascript/installation",
+              "sdks/javascript/usage",
+              "sdks/javascript/examples"
+            ]
+          },
+          {
+            "group": "Python SDK",
+            "pages": [
+              "sdks/python/installation",
+              "sdks/python/usage",
+              "sdks/python/examples"
+            ]
+          },
+          {
+            "group": "Go SDK",
+            "pages": [
+              "sdks/go/installation",
+              "sdks/go/usage",
+              "sdks/go/examples"
+            ]
+          },
+          {
+            "group": "Resources",
+            "pages": [
+              "resources/faq",
+              "resources/comparison",
+              "resources/contributing",
+              "resources/changelog"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "JavaScript API",
+            "pages": [
+              "api/javascript/geocode",
+              "api/javascript/geocode-h3",
+              "api/javascript/types"
+            ]
+          },
+          {
+            "group": "Python API",
+            "pages": [
+              "api/python/geocode",
+              "api/python/geocode-h3",
+              "api/python/types"
+            ]
+          },
+          {
+            "group": "Go API",
+            "pages": [
+              "api/go/geocode",
+              "api/go/geocode-h3",
+              "api/go/types"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Sub-millisecond in-memory lookups",
+    "Zero API costs and no network dependency",
+    "H3-based spatial indexing with parent-cell fallback",
+    "Multi-language support (JavaScript, Python, Go)",
+    "Optimized for India with city/state/district/pincode data"
+  ],
+  "publicApiSurface": [
+    "geocode(lat, lon, options?)",
+    "geocodeH3(h3Index, options?)",
+    "ReverseGeocoder class",
+    "GeocodeOptions interface",
+    "GeocodeResult interface",
+    "LocationDetails interface"
+  ]
+}
